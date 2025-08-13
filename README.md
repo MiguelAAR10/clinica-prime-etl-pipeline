@@ -14,14 +14,14 @@ El pipeline sigue una arquitectura ETL (Extract-Transform-Load) modular, donde l
 
 ```mermaid
 graph TD;
-    A[📄 Excel Crudo (Múltiples Hojas)] -->|1. Extracción| B(🐼 DataFrame Maestro en Pandas);
+    A[📄 Excel Crudo Múltiples Hojas] -->|1. Extracción| B 🐼 DataFrame Maestro en Pandas;
     B -->|2. Transformación en Cascada| C{⚙️ Pipeline de Limpieza};
     C -->|Lógica A| D[🔧 Estandarización de Esquema];
     C -->|Lógica B| E[🔧 Cirugía de Tipos de Datos];
     C -->|Lógica C| F[🔧 Reconstrucción de Identidades];
-    C -->|Lógica D| G[🔧 Extracción de Características (Notas)];
+    C -->|Lógica D| G[🔧 Extracción de Características Notas];
     G --> H[📊 DataFrame Limpio y Consolidado];
-    H -->|3. Carga| I((🐘 Base de Datos PostgreSQL));
+    H -->|3. Carga| I🐘 Base de Datos PostgreSQL;
 ```
 
 ---
