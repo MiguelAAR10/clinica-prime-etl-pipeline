@@ -1,0 +1,13 @@
+# Ignorar TODOS los datos. La despensa es privada.
+data/
+
+# Ignorar TODOS los resultados. Los platos terminados no se guardan en los planos.
+output/
+
+# Ignorar archivos del sistema y entornos virtuales
+.vscode/
+.venv/
+venv/
+__pycache__/
+*.pgerd
+*.rd
