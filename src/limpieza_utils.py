@@ -351,7 +351,7 @@ def consolidar_marcador_problematico(df: pd.DataFrame) -> pd.DataFrame:
     # `|` (La Barra Vertical) es el operador "O" en Pandas
     # El Proposito: un paciente es problmetico (True/False)
     
-    df['paciente_problmeatico'] = nombre_contiene_pp | pp_no_es_nulo 
+    df['paciente_problematico'] = nombre_contiene_pp | pp_no_es_nulo 
     
     #Descartamos la column Original 'PP'  ahora que es redundante. 
     if 'pp' in df.columns:
