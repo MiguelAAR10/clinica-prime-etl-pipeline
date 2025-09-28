@@ -18,6 +18,7 @@ output/
 venv/
 __pycache__/
 
+
 # ===============
 # Archivos de Configuración Sensibles (de tu versión de master)
 # ===============
