@@ -1,60 +1,55 @@
--- MIGRACION 001: -- Stock Ledger 
--- Objetivo: 
--- -- Crear un registro inmutable de Cada movimiento de Stock y automatizar su actulizacion
+-- ======================================================================
+-- MIGRACIÓN 001: EL LIBRO MAYOR DE STOCK (VERSIÓN PURIFICADA)
+-- ======================================================================
 
-BEGIN; -- TRANSACTION START (Signifca que debe completar todo o nada)
+-- Usaremos el modo --single-transaction del orquestador,
+-- por lo que BEGIN/COMMIT son opcionales aquí, pero los dejamos por claridad.
+BEGIN;
 
--- 1. Creacion de la tabla `movimientos stock`
--- Esta es la Unica funete de Verdad del Inventario. No se Borra nada solo se anade 
-CREATE TABLE movimientos_stock (
+-- PASO 1: LA TABLA 'movimientos_stock'
+-- Se añade IF NOT EXISTS para que el script se pueda ejecutar múltiples
+-- veces sin fallar si la tabla ya fue creada parcialmente.
+CREATE TABLE IF NOT EXISTS movimientos_stock (
     id_movimiento SERIAL PRIMARY KEY,
-    id_producto INT NOT NULL REFERENCES productos_catalogo(id_producto),
+    id_producto INTEGER NOT NULL REFERENCES productos_catalogo(id_producto),
     tipo_movimiento VARCHAR(10) NOT NULL CHECK (tipo_movimiento IN ('ENTRADA', 'SALIDA')),
     cantidad NUMERIC(10,2) NOT NULL CHECK (cantidad > 0),
-    id_consumo_origen INT REFERENCES
-    fecha_movimiento TIMESTAMPTZ NOT NULL DEFAULT NOW()    
+    id_consumo_origen INTEGER REFERENCES consumo_productos(id_consumo) UNIQUE,
+    fecha_movimiento TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_movimientos_stock_producto ON movimientos_stock(id_producto);
-
--- 2. CREACION DE LA FUNCION `registrar_salida_stock_por_consumo`
--- Esta es el cerebro que se ejecutara
--- RETURNS TRIGGER: Le dice a PostgreSQL que esta funcion sera usada por un trigger
--- AS $$ ... $$: Delimita el Cuerpo de la funcion 
--- LANGUAGE plpgsql: Especifica el lenguaje de la funcion (El estandar  de Postgres)
-
+-- PASO 2: LA FUNCIÓN 'registrar_salida_stock_por_consumo'
+-- Reescrita con la máxima claridad sintáctica.
 CREATE OR REPLACE FUNCTION registrar_salida_stock_por_consumo()
---Instrucciones que estamsos dando -> los pasos a seguir 
-RETURN TRIGGER AS $$ -- Delimitacion 
-BEGIN -- Inicio del Bloque de logica de la funcion
-    -- La logica  principal: Inserta una nueva Fila en nuestro libro mayor.
-    INSERT INTO movimientos_stock(
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $BODY$
+BEGIN
+    INSERT INTO movimientos_stock (
         id_producto,
         tipo_movimiento,
         cantidad,
         id_consumo_origen
     )
     VALUES (
-        -- 'NEW' es un variable magica disponible dentro de los triggers
-        -- 
-        -- Representa la fila que Acaba de Ser insertada en consumo productos
-        NEW.id_producto, -- Tomamos el id_producto de la nueva fila de consumo
-        'SALIDA', -- Definimps el movimiento como 'SALIDA'
-        NEW.cantidad_consumida, -- Tomamos la cnatidad de la nueva fila de consumo 
-        NEW.id_consumo -- Creamos un vinculo directo al registro de consumo que causo este movimiento
+        NEW.id_producto,
+        'SALIDA',
+        NEW.cantidad_consumida,
+        NEW.id_consumo
     );
-    --= Todo Trigger debe devolver algo. En un trigger 'AFTER', Devolver un NEW es un buena practica 
     RETURN NEW;
-    -- `RETURN` la declaracion que finaliza la ejecucion de la funcion y devuelve un valor 
-    --
-END;  -- Fin del bloque logico
-$$ LANGUAGE plpgsql;
+END;
+$BODY$;
 
--- 3. CREACIÓN DEL TRIGGER 'trig_after_insert_consumo'
--- Este es el "guardián" que vigila la tabla 'consumo_productos'.
+-- PASO 3: EL TRIGGER 'trig_after_insert_consumo'
+-- Se añade IF NOT EXISTS si usas PostgreSQL 14+. Si da error,
+-- simplemente borra el trigger anterior con 'DROP TRIGGER IF EXISTS...'
+DROP TRIGGER IF EXISTS trig_after_insert_consumo ON consumo_productos;
 CREATE TRIGGER trig_after_insert_consumo
-    AFTER INSERT ON consumo_productos -- EVENTO: Se dispara DESPUÉS de un INSERT en la tabla.
-    FOR EACH ROW -- Se ejecuta para cada fila individual que se inserte.
-    EXECUTE FUNCTION registrar_salida_stock_por_consumo(); -- ACCIÓN: Llama a la función que creamos arriba.
+    AFTER INSERT ON consumo_productos
+    FOR EACH ROW
+    EXECUTE FUNCTION registrar_salida_stock_por_consumo();
 
-COMMIT; -- TRANSACTION END: Si todo lo anterior funcionó, los cambios se hacen permanentes.
+COMMIT;
+
+
