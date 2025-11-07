@@ -1,4 +1,11 @@
+# requirements.txt
 Flask==3.0.0
-SQLAlchemy==2.0.21
-psycopg2-binary==2.9.9
 python-dotenv==1.0.0
+Flask-SQLAlchemy==3.1.1
+psycopg2-binary==2.9.9
+Flask-Migrate==4.0.5 # <- Nueva herramienta para migraciones de DB
+SQLAlchemy==2.0.23
+marshmallow==3.20.1 # <- Nueva herramienta de validación
+Flask-Marshmallow==0.15.0 # <- Su integración con Flask
+marshmallow-sqlalchemy==0.29.0 # <- Su integración con SQLAlchemy
+flask-cors==4.0.0 # <- Permite que un frontend hable con nuestro backend
