@@ -3,14 +3,11 @@
 Modelo Paciente - Entidad central del negocio
 """
 
-from app import db
-from app.models.base import BaseModel
-from datetime import datetime, date
-import pytz
+from app.extensions import db # Instancia de SQLAlchemy
+from app.models.base import BaseModel # Clase base para todos los modelos
+from datetime import datetime, date  # Fechas y horas
+import pytz # Manejo de zonas horarias
 from flask import current_app
-
-# Importamos el modelo Distrito para la relación
-from app.models.distrito import Distrito
 
 
 class Paciente(BaseModel):
@@ -95,8 +92,9 @@ class Paciente(BaseModel):
         
         # 'backref' crea MÁGICAMENTE la propiedad 'distrito.pacientes'
         # en el modelo Distrito.
-        backref=db.backref('pacientes', lazy='dynamic'),
-        
+        # backref=db.backref('pacientes', lazy='dynamic'),
+         # 🧩 Relación explícita y segura
+        back_populates='pacientes',
         # 'lazy' controla CÓMO se carga esta relación.
         # 'select' (default): Se dispara un query CUANDO pides paciente.distrito
         # 'joined': SQLAlchemy hace un JOIN automático en la query original
@@ -136,7 +134,7 @@ class Paciente(BaseModel):
                 
         return edad_base
     
-    @property
+    @property # `@property` convierte el método en atributo calculado
     def fecha_nacimiento_completa(self):
         """
         Retorna fecha de nacimiento como 'date object' si es válida.

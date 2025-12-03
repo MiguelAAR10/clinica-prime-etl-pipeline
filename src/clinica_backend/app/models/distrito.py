@@ -6,7 +6,7 @@ Representa la Tabla de distritos en la base de datos
 Representa las zonas geográficas donde viven los pacientes
 """
 
-from app import db
+from app.extensions import db
 from app.models.base import BaseModel
 
 class Distrito(BaseModel):
@@ -66,7 +66,11 @@ class Distrito(BaseModel):
     # lazy='dynamic' retorna una query (no carga todos los pacientes de inmediato)
     
     # ESTO LO DESCOMENTARÁS cuando crees el modelo Paciente
-    pacientes = db.relationship('Paciente', backref='distrito', lazy='dynamic')
+    pacientes = db.relationship(
+        'Paciente', 
+        back_populates='distrito',
+        lazy='dynamic'
+        )
     
     def __repr__(self):
         """

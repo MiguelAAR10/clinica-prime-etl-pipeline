@@ -1,328 +1,172 @@
-# ============================================
-# DEPARTAMENTE DE GESTION DE PACIENTES
-# Mision: Proveer los Endposints de la API para interactuar con los pacientes
-# ============================================
+# src/clinica_backend/app/routes/pacientes.py
+"""
+BLUEPRINT DE PACIENTES (El Mesero)
+Recibe pedidos (HTTP Requests), se los da al Chef (Service) y entrega el plato (JSON).
+"""
 
-from app import db # Importa la instancia de SQLAlchemy
-from app.models.base import BaseModel # Importa la clase base para los modelos
-from datetime import datetime, date # Importa datetime para manejo de fechas
-import pytz # Importa pytz para manejo de zonas horarias
+from flask import Blueprint, request, current_app
+from marshmallow import ValidationError
 
-class Paciente(BaseModel):
-    __tablename__ = "pacientes"
-    
-    id_paciente = db.Column(
-        db.Integer, # Establecer el Tipo de Dato
-        primary_key = True, # Establecer como `Clave Primaria`
-        autoincrement = True # Auto Incremental
-    )
-    dni =  db.Column(
-        db.String(20), # Establcer que es un Tipo de Dato Texto
-        unique = True, # <- Critico: Un dni por Persona
-        nullable = False # <- NO Puede ser NULL 
-    )
-    
-    nombre_completo = db.Column(
-        db.String(225),
-        nullable = False 
-    )
-    
-    sexo = db.Column(
-        db.String(10),
-        nullable = True
-    )
-    
-    telefono = db.Column(db.String(25), nullable=True)
-    
-    nacimiento_year = db.Column(db.Integer, nullable=True)
-    nacimiento_month = db.Column(db.Integer, nullable=True)
-    nacimiento_day = db.Column(db.Integer, nullable=True)
-    
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # COLUMNAS: RELACIONES
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    
-    id_distrito = db.Column(
-        db.Integer,
-        db.ForeignKey('distritos.id_distrito'),  # ← Relación a tabla distritos
-        nullable=True
-    )
-    # ¿Qué hace db.ForeignKey?
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 1. Crea constraint en PostgreSQL:
-    #    FOREIGN KEY (id_distrito) REFERENCES distritos(id_distrito)
-    #
-    # 2. Garantiza integridad referencial:
-    #    - No puedes poner id_distrito = 999 si no existe
-    #    - Error: violates foreign key constraint
-    #
-    # 3. Previene orfanatos:
-    #    - Si intentas DELETE un distrito con pacientes:
-    #    - Error (a menos que uses CASCADE)
-    #
-    # FUNDAMENTO CS: Referential Integrity (Codd's Relational Model)
-    
-    # Relación ORM (la magia de SQLAlchemy)
-    distrito = db.relationship(
-        'Distrito',           # Clase del modelo relacionado
-        backref='pacientes',  # Crea distrito.pacientes automáticamente
-        lazy='joined'         # Estrategia de carga
-    )
-    # ¿Qué hace relationship?
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # Permite hacer:
-    # paciente = Paciente.query.first()
-    # print(paciente.distrito.nombre_distrito)  ← ¡Sin JOIN manual!
-    #
-    # SQLAlchemy genera el JOIN automáticamente:
-    # SELECT pacientes.*, distritos.*
-    # FROM pacientes
-    # LEFT JOIN distritos ON pacientes.id_distrito = distritos.id_distrito
-    #
-    # ¿Qué es lazy='joined'?
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # OPCIÓN A: lazy='select' (default)
-    # - Query inicial: SELECT * FROM pacientes
-    # - Al acceder distrito: SELECT * FROM distritos WHERE id = X
-    # - Problema: N+1 queries (lento con muchos pacientes)
-    #
-    # OPCIÓN B: lazy='joined' (tu elección)
-    # - Una sola query con LEFT JOIN
-    # - Más rápido si SIEMPRE necesitas el distrito
-    # ✅ RECOMENDADO para relaciones N:1 frecuentes
-    #
-    # OPCIÓN C: lazy='dynamic'
-    # - Retorna query object (para relaciones 1:N grandes)
-    # - Ej: paciente.consultas (podría ser 1000 consultas)
-    
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # COLUMNAS: METADATOS
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    
-    paciente_problematico = db.Column(
-        db.Boolean,
-        default=False,
-        nullable=False
-    )
-    # ¿Para qué sirve este flag?
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # CASO DE USO:
-    # - Paciente que hace scams (paga con cheques sin fondos)
-    # - Paciente violento
-    # - Sistema de alertas en recepción
-    #
-    # Query útil:
-    # pacientes_problema = Paciente.query.filter_by(
-    #     paciente_problematico=True
-    # ).all()
-    
-    created_at = db.Column(
-        db.DateTime(timezone=True),  # TIMESTAMPTZ en PostgreSQL
-        nullable=False,
-        default=lambda: datetime.now(pytz.timezone('America/Lima'))
-    )
-    # ¿Por qué DateTime(timezone=True)?
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # FUNDAMENTO: Siempre usa timestamps con timezone en apps reales
-    #
-    # DateTime sin TZ:
-    # - Guarda: '2024-01-15 10:00:00'
-    # - Ambiguo: ¿UTC? ¿Lima? ¿Madrid?
-    #
-    # DateTime(timezone=True):
-    # - Guarda: '2024-01-15 10:00:00-05:00' (Lima)
-    # - PostgreSQL lo convierte a UTC internamente
-    # - Al leer, convierte a tu timezone
-    #
-    # default=lambda: ...
-    # - Se ejecuta en el MOMENTO del INSERT
-    # - Usa timezone de Lima (tu configuración)
-    # - Alternativa: db.func.now()
-    
-    def __repr__(self):
-        """
-        Representacion en String
-        """
-        return f'<Paciente {self.id_paciente} : {self.nombre_completo}'
-    
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # MÉTODOS DE INSTANCIA (LÓGICA DEL MODELO)
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    
-    @property
-    def edad(self):
-        """
-        Calcula la edad del paciente DINÁMICAMENTE
-        
-        FUNDAMENTO CS: Computed Property (Data Derivation)
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        
-        ¿Por qué @property y no una columna 'edad' en la DB?
-        
-        OPCIÓN A (Malo): Columna 'edad INTEGER' en DB
-        - Problema: Se vuelve obsoleta (hoy 30, mañana 31)
-        - Requiere: Background job que actualiza todas las edades diario
-        - Inconsistencia: ¿Qué pasa si el job falla?
-        
-        OPCIÓN B (Bueno): Calcular dinámicamente (tu elección)
-        """
-        if not self.nacimiento_year:
-            return None
-        
-        hoy = date.today()
-        edad = hoy.year - self.nacimiento_year
-        
-        # Ajustar si aun no ha cumpliado anos este ano
-        if self.nacimiento_month and self.nacimiento_day:
-            if (hoy.month, hoy.day) < (self.nacimiento_month, self.nacimiento_day):
-                edad -= 1
-        
-        return edad
+# 1. IMPORTAMOS EL CHEF (Lógica de Negocio)
+# Validado: Coincide con tu estructura de carpetas
+from app.services.paciente_service import PacienteService
 
-    @property
-    def fecha_nacimiento_completa(self):
-        """
-        Retorna fecha de nacimiento como date Objecct
-        
-        Returns:
-            date o None: Fecha de nacimiento Completa 
-        """
-        
-        if not all([self.nacimiento_year, self.nacimiento_month, self.nacimiento_day]):
-            return None
-        
-        try:
-            return date(
-                self.nacimiento_year,
-                self.nacimiento_month,
-                self.nacimiento_day
-            )
-        except ValueError:
-            # Fecha Invalida (31 de Febrero)
-            return None
-    
-    @property
-    def alertas(self):
-        """
-        Genera lista de alertas sobre Datos incompletos
-        
-        Returns:
-            list: Lista de Codigos de Alerta
-            
-        Ejemplo:
-            paciente.alertas # ['falta_mes_dia_nacimiento', 'sin_telefono']
-        """
-        alertas = []
-        
-        if not self.nacimiento_year:
-            alertas.append('falta_anio_nacimiento')
-        elif not self.nacimiento_month or not self.nacimiento_day:
-            alertas.append('falta_mes_dia_nacimiento')
-        
-        if self.fecha_nacimiento_completa is None and self.nacimiento_year:
-            alertas.append('fecha_nacimiento_invalida')
-        
-        if not self.telefono:
-            alertas.append('sin_telefono')
-        
-        if not self.id_distrito:
-            alertas.append('sin_distrito')
-        
-        return alertas
-    
-    #--------------------------------------------------
-    # MÉTODOS PERSONALIZADOS DE CLASE (QUERY HELPERS)
-    #--------------------------------------------------
-    
-    def to_dict(self, include_relations = False):
-        """
-        Sobreescribir to_Dict() de BaseModel para agregar campos calculados
-        
-        Args:
-            include_relations (bool): Incluir datos del distrito relacionado
-        """
-        # obtener Diccionario Base
-        data = super().to_dict()
-        
-        # Agregar campos calculados
-        data['edad'] = self.edad
-        data['alertas'] = self.alertas
-        
-        # Formatear fecha de Nacimiento
-        if self.fecha_nacimiento_completa:
-            data['fechaNacimiento'] = self.fecha_nacimiento_completa.isoformat()
-        else:
-            data['fechaNacimiento'] = None
-            
-        # Incluir Datos del Distrito si se Solicita
-        if include_relations and self.distrito:
-            data['distrito'] = {
-                'id': self.distrito.id_distrito,
-                'nombre': self.distrito.nombre_distrito
-            }
-        
-        # Convertir Keys a camelCase para FrontEnd
-        data = self._to_camel_case(data)
-        
-        return data
+# 2. IMPORTAMOS LOS GUARDIANES (Schemas)
+# Validado: Importación explícita para evitar errores de 'current_app'
+from app.schemas.paciente_schema import PacienteSchema, PacienteCreateSchema, PacienteUpdateSchema
 
-    @staticmethod # Convierte a Metodo Estático ( Significa que no usa self )
-    def _to_camel_case(data):
-        """
-        Convierte keys de snake_case a camelCase
-        
-        Args:
-            data (dict): Diccionario con keys en snake_case
-        
-        Returns:
-            dict: Diccionario con keys en camelCase
-        
-        Ejemplo:
-            {'nombre_completo': 'Juan Perez'} 
-            → {'nombreCompleto': 'Juan Perez'} 
-        """
-        
-        camel_data = {}
-        for key, value in data.items():
-            # Convertir snake_case a camelCase
-            components = key.split('_')
-            camel_key = components[0] + ''.join(x.title() for x in components[1:])
-            camel_data[camel_key] = value
+# 3. IMPORTAMOS EL EMPAQUETADOR (Respuestas)
+from app.utils.response import APIResponse
 
-        return camel_data
+pacientes_bp = Blueprint('pacientes', __name__)
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# INSTANCIAS DE SCHEMAS (Para usar dentro de las rutas)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+paciente_schema = PacienteSchema()                      # Para un solo paciente
+pacientes_list_schema = PacienteSchema(many=True)       # Para una lista de pacientes
+create_schema = PacienteCreateSchema()                  # Validador estricto para crear
+update_schema = PacienteUpdateSchema()                  # Validador flexible para actualizar
+
+# --------------------------------------------------------
+# ENDPOINT 1: CREAR (POST)
+# --------------------------------------------------------
+@pacientes_bp.route('/pacientes', methods=['POST'])
+def crear_paciente():
+    """
+    Crea un nuevo paciente en la base de datos.
+    """
+    # 1. Recibir los ingredientes crudos (JSON)
+    json_data = request.get_json()
+    if not json_data:
+        return APIResponse.error("No se enviaron datos JSON", status_code=400)
     
-    @staticmethod
-    def buscar_por_Dni(cls, dni):
-        """
-        Busca un paciente por su DNI
+    try:
+        # 2. El Guardián revisa los ingredientes (Validación)
+        data_validada = create_schema.load(json_data)
         
-        Args:
-            dni(str): DNI a Buscarq
+        # 3. El Chef cocina (Llamada al Servicio)
+        nuevo_paciente = PacienteService.crear_paciente(data_validada)
         
-        Returns: 
-            Paciente o None
+        # 4. Empaquetar para llevar (Serialización)
+        result = paciente_schema.dump(nuevo_paciente)
         
-        Uso:
-            paciente = Paciente.buscar_por_Dni('12345678')
-        """
-        
-        return cls.query.filter_by(dni=dni).first()
-    
-    @staticmethod
-    def buscar_por_nombre(cls, nombre, limit = 20):
-        """
-        Busca pacientes por nombre (Busqueda parcial, case-insensitive)
-        
-        Args:
-            nombre (str): Texto s Buscar
-            limit (int): Maximo de Resultados
-        Returns: 
-            list: Lista de Pacientes que coinciden
-        
-        Uso:
-            pacientes = Paciente.buscar_por_nombre('Juan')
-        """
-        return cls.query.filter(
-            cls.nombre_completo.ilike(f'%{nombre}%').limit(limit).all()
+        # 5. Entregar al cliente
+        return APIResponse.success(
+            data=result,
+            message="Paciente creado exitosamente",
+            status_code=201
         )
+    
+    except ValidationError as e:
+        # Error: El JSON estaba mal formado (ej: DNI con letras)
+        return APIResponse.error("Error de validación", status_code=400, details=e.messages)
+    except ValueError as e:
+        # Error: Regla de negocio rota (ej: DNI duplicado)
+        return APIResponse.error(str(e), status_code=400)
+    except Exception as e:
+        # Error: Se incendió la cocina (Error de servidor)
+        return APIResponse.error(str(e), status_code=500)
 
+# --------------------------------------------------------
+# ENDPOINT 2: LISTAR (GET)
+# --------------------------------------------------------
+@pacientes_bp.route('/pacientes', methods=['GET'])
+def get_pacientes():
+    """
+    Obtiene lista paginada de pacientes.
+    Params URL: ?page=1&per_page=10&search=juan
+    """
+    try:
+        # 1. Leer la comanda (Query Params)
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', None, type=str)
+        distrito_id = request.args.get('distrito_id', None, type=int)
+        
+        # 2. El Chef prepara el buffet (Servicio)
+        # ⚠️ CORRECCIÓN CRÍTICA: El nombre del método es 'listar_pacientes'
+        resultado = PacienteService.listar_pacientes(
+            page=page, 
+            per_page=per_page, 
+            search=search,
+            distrito_id=distrito_id
+        )
+        
+        # 3. Empaquetar la lista
+        items_json = pacientes_list_schema.dump(resultado['items'])
+        
+        response_data = {
+            'items': items_json,
+            'pagination': {
+                'total': resultado['total'],
+                'page': resultado['page'],
+                'pages': resultado['pages'],
+                'per_page': resultado['per_page']
+            }
+        }
+        return APIResponse.success(data=response_data)
+    
+    except Exception as e:
+        return APIResponse.error(str(e), status_code=500)
+
+# --------------------------------------------------------
+# ENDPOINT 3: OBTENER UNO (GET BY ID)
+# --------------------------------------------------------
+@pacientes_bp.route('/pacientes/<int:id_paciente>', methods=['GET'])
+def get_paciente_by_id(id_paciente): 
+    try:
+        paciente = PacienteService.obtener_paciente(id_paciente)
+        
+        if not paciente:
+            return APIResponse.error("Paciente no encontrado", status_code=404)
+        
+        # Usamos to_dict_completo() del modelo si queremos datos extra (edad, alertas)
+        # O usamos el schema. Usaremos schema por consistencia.
+        return APIResponse.success(data=paciente_schema.dump(paciente))
+
+    except Exception as e:
+        return APIResponse.error(str(e), status_code=500)
+
+# --------------------------------------------------------
+# ENDPOINT 4: ACTUALIZAR (PUT)
+# --------------------------------------------------------
+@pacientes_bp.route('/pacientes/<int:id_paciente>', methods=['PUT'])
+def update_paciente(id_paciente):
+    json_data = request.get_json()
+    if not json_data:
+        return APIResponse.error("No se enviaron datos", status_code=400)
+    
+    try:
+        # Validación Parcial (partial=True) permite enviar solo 1 campo (ej: telefono)
+        data_validada = update_schema.load(json_data, partial=True)
+        
+        if not data_validada:
+            return APIResponse.error("Sin datos válidos para actualizar", status_code=400)
+        
+        paciente_actualizado = PacienteService.actualizar_paciente(id_paciente, data_validada)
+        
+        return APIResponse.success(data=paciente_schema.dump(paciente_actualizado))
+    
+    except ValidationError as e:
+        return APIResponse.error("Error de validación", status_code=400, details=e.messages)
+    except ValueError as e:
+        status = 404 if "no encontrado" in str(e).lower() else 400
+        return APIResponse.error(str(e), status_code=status)
+    except Exception as e:
+        return APIResponse.error(str(e), status_code=500)
+
+# --------------------------------------------------------
+# ENDPOINT 5: ELIMINAR (DELETE)
+# --------------------------------------------------------
+@pacientes_bp.route('/pacientes/<int:id_paciente>', methods=['DELETE'])
+def delete_paciente(id_paciente):
+    try:
+        PacienteService.eliminar_paciente(id_paciente)
+        return APIResponse.success(message="Paciente eliminado correctamente")
+
+    except ValueError as e:
+        status = 404 if "no encontrado" in str(e).lower() else 400
+        return APIResponse.error(str(e), status_code=status)
+    except Exception as e:
+        return APIResponse.error(str(e), status_code=500)
