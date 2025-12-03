@@ -1,4 +1,4 @@
-# 🏥 MediStock Core: Clinical Data Pipeline & ERP
+# MediStock Core: Clinical Data Pipeline & ERP
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge&logo=postgresql&logoColor=white)
