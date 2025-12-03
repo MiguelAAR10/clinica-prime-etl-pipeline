@@ -5,8 +5,9 @@ Clase base para todos los Modelos
 Proporciona Métodos y Atributos Comunees de Serialización, Validación, etc.
 """
 
-from app import db
+from app.extensions import db
 from datetime import datetime
+from sqlalchemy.exc import SQLAlchemyError
 
 class BaseModel(db.Model):
     """
@@ -35,6 +36,41 @@ class BaseModel(db.Model):
     """
 
     __abstract__ = True  # No crea Tabla para esta clase
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # CRUD BÁSICO (Guardar, Eliminar)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    def save(self):
+        try:
+            db.session.add(self)
+            db.session.commit()
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            raise e
+
+    def delete(self):
+        try:
+            db.session.delete(self)
+            db.session.commit()
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            raise e
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # METODOS DE FABRICA (El Gerente de Fabrica)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    @classmethod
+    def get_by_id(cls, record_id):
+        """
+        Obtiene un registro por su ID.
+        Uso: Paciente.get_by_id(1)
+        """
+        return cls.query.get(record_id) 
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # MÉTODO DE SERIALIZACIÓN (La Tarjeta de Presentación)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def to_dict(self):
         """
@@ -105,4 +141,23 @@ class BaseModel(db.Model):
         # self -> Instancia del modelo actual (Representa objeto Actual)
         # data.items() -> Itera sobre pares clave-valor del diccionario
         # hasattr(self, key) -> Verifica si el atributo existe en el modelo
-        # setattr(self, key, value) -> Actualiza el atributo con el nuevo valor 
+        # setattr(self, key, value) -> Actualiza el atributo con el nuevo valor ``
+        
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # MÉTODO DE UTILIDAD (La Caja de Herramientas)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    @staticmethod
+    def _to_camel_case(snake_case_dict):
+        """
+        Herramienta estática para convertir keys de un dict
+        de snake_case a camelCase (para respuestas JSON).
+        
+        Promovido a BaseModel para que TODOS los modelos lo hereden (DRY).
+        """
+        camel_data = {}
+        for key, value in snake_case_dict.items():
+            components = key.split('_')
+            camel_key = components[0] + ''.join(x.title() for x in components[1:])
+            camel_data[camel_key] = value
+        
+        return camel_data

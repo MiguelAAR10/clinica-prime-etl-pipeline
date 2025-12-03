@@ -1,69 +1,82 @@
-# src/app/utils/response.py
-"""
-Helper para estandarizar respuestas JSON de la API
-"""
-
 from flask import jsonify
 
-def success_response(data=None, message=None, status_code=200):
-    """
-    Respuesta exitosa estandarizada
-    
-    Args:
-        data: Datos a retornar
-        message: Mensaje opcional
-        status_code: Código HTTP (default 200)
-    
-    Returns:
-        tuple: (response, status_code)
-    
-    Ejemplo:
-        return success_response(
-            data={'id': 123, 'nombre': 'Juan'},
-            message='Paciente creado',
-            status_code=201
-        )
-    """
-    response = {'success': True}
-    
-    if data is not None:
-        response['data'] = data
-    
-    if message:
-        response['message'] = message
-    
-    return jsonify(response), status_code
+"""
+MODULO DE RESPUESTAS ESTANDARIZADAS (Patrón Facade para Respuestas HTTP)
 
+¿POR QUÉ HACEMOS ESTO?
+Imagina que tienes 50 endpoints. Si en cada uno escribes manualmente el JSON:
+- En uno pondrás "mensaje", en otro "message", en otro "msg".
+- El Frontend se volverá loco intentando adivinar qué llave leer.
 
-def error_response(code, message, details=None, status_code=400):
+SOLUCIÓN:
+Creamos una "Fachada" (Facade). Todos los endpoints llaman a estas funciones.
+Si mañana queremos cambiar el formato de TODA la API, solo cambiamos este archivo.
+"""
+
+class APIResponse:
     """
-    Respuesta de error estandarizada
-    
-    Args:
-        code: Código de error (ej: 'VALIDATION_ERROR')
-        message: Mensaje descriptivo
-        details: Detalles adicionales (opcional)
-        status_code: Código HTTP (default 400)
-    
-    Returns:
-        tuple: (response, status_code)
-    
-    Ejemplo:
-        return error_response(
-            code='NOT_FOUND',
-            message='Paciente no encontrado',
-            status_code=404
-        )
+    Clase estática para agrupar los métodos de respuesta.
+    No necesita instanciarse (no usamos `self`).
     """
-    response = {
-        'success': False,
-        'error': {
-            'code': code,
-            'message': message
+
+    @staticmethod
+    def success(data=None, message="Successful operation", status_code=200):
+        """
+        Respuesta estándar para casos de ÉXITO (200, 201).
+        
+        Estructura JSON resultante:
+        {
+            "success": true,
+            "message": "Operación exitosa",
+            "data": { ... datos ... }
         }
-    }
-    
-    if details:
-        response['error']['details'] = details
-    
-    return jsonify(response), status_code
+        
+        Args:
+            data (dict/list): Los datos reales (pacientes, facturas, etc.)
+            message (str): Mensaje legible para el usuario final.
+            status_code (int): 200 (OK) o 201 (Created).
+        """
+        response_structure = {
+            "success": True,
+            "message": message,
+            "data": data
+        }
+        # jsonify: Convierte el diccionario de Python a String JSON compatible con HTTP
+        return jsonify(response_structure), status_code
+
+    @staticmethod
+    def error(message, status_code=400, code="GENERIC_ERROR", details=None):
+        """
+        Respuesta estándar para ERRORES (400, 404, 500).
+        
+        Estructura JSON resultante:
+        {
+            "success": false,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "El DNI es inválido",
+                "details": ["Campo requerido", "Debe ser numérico"]
+            }
+        }
+
+        Args:
+            message (str): Descripción del error.
+            status_code (int): HTTP Status (400 Bad Request, 404 Not Found, etc.)
+            code (str): Código interno para el desarrollador (ej: 'USER_NOT_FOUND').
+            details (list/dict): Opcional. Errores específicos de validación.
+        """
+        error_structure = {
+            "code": code,
+            "message": message
+        }
+        
+        # Solo agregamos 'details' si existen, para no ensuciar el JSON
+        if details:
+            error_structure["details"] = details
+
+        response_structure = {
+            "success": False,
+            "error": error_structure
+        }
+        
+        return jsonify(response_structure), status_code
