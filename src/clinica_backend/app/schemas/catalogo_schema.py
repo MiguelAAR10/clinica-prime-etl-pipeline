@@ -74,3 +74,18 @@ class ProductoCreateSchema(ProductoSchema):
 
 class ProductoUpdateSchema(ProductoSchema):
     pass
+
+from app.models.servicio import Servicio
+
+# ──────────────────────────────────────────────────────────
+# 4. SCHEMA DE SERVICIO
+# ──────────────────────────────────────────────────────────
+class ServicioSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Servicio
+        load_instance = False
+        unknown = EXCLUDE
+
+    id_servicio = ma.auto_field(dump_only=True)
+    nombre_servicio = fields.String(required=True, validate=validate.Length(min=3))
+    precio_servicio = fields.Decimal(as_string=False, validate=validate.Range(min=0))
