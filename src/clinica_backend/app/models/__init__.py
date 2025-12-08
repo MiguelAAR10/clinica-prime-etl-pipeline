@@ -18,3 +18,7 @@ from .paciente import Paciente
 
 # Ahora, el resto de la aplicación puede hacer la importación limpia:
 # from app.models import Paciente, Distrito, BaseModel
+
+from .marca import Marca
+from .producto import Producto
+from .servicio import Servicio

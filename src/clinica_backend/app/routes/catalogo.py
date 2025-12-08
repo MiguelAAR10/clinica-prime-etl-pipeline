@@ -24,7 +24,7 @@ from marshmallow import ValidationError
 from app.services.catalogo_service import CatalogoService
     # `CatalogoService` -> Cerebro del Negocio: contiene toda la logica del Negocio
     
-from app.schemas.producto_schema import MarcaSchema, ProductoSchema, ProductoCreateSchema 
+from app.schemas.catalogo_schema import MarcaSchema, ProductoSchema, ProductoCreateSchema 
     # `Schemas` son lo guardianes los porteros los filtros de Datos
 '''
     Schema.load()  ← limpia, transforma, valida
