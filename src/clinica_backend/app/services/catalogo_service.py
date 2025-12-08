@@ -17,6 +17,7 @@ from app.extensions import db
     
 from app.models.producto import Producto
 from app.models.marca import Marca 
+from app.models.servicio import Servicio
     # Modelos: son las definciones de como luce un table en PostgreSQL
     # Cada Modelo  es una Clase que:
     #   - Repreenta un trabal
@@ -91,6 +92,27 @@ class CatalogoService:
     @staticmethod
     def listar_productos():
         # `SQL`: 'SELECT * FROM producto ORDER BY nombre_producto
-        return Producto.query.order_by(Producto.nombre_Producto).all() 
+        return Producto.query.order_by(Producto.nombre_producto).all() 
+    
+    # ============ SERVICIOS =====================================
+    @staticmethod # No necesitamos instanciar la CLASE
+    def crear_servicios(data):
+        nombre = data.get('nombre_servicio')
+        if Servicio.query.filter(Servicio.nombre_servicio.ilike(nombre)).first():
+            raise ValueError(f"El Servicio '{nombre} ya existe")
+        
+        nuevo_servicio = Servicio(**data)
+        
+        try:
+            db.session.add(nuevo_servicio)
+            db.session.commit()
+            return nuevo_servicio
+        except Exception as e:
+            db.session.rollback()
+            raise e
+        
+    @staticmethod 
+    def listar_servicios(): 
+        return  Servicio.query.order_by(Servicio.nombre_servicio.asc()).all()
     
             
