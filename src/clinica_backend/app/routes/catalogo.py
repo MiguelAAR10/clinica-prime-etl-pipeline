@@ -134,7 +134,7 @@ def crear_productos():
         return APIResponse.success(producto_schema.dump(nuevo_prod), "Producto Creado", 201)
     
     except ValidationError as e:
-        return APIResponse.error("Error de Validacion", 400. details = e.messages)
+        return APIResponse.error("Error de Validacion", 400, details=e.messages)
     
     except ValueError as e:
         return APIResponse.error(str(e), 400)

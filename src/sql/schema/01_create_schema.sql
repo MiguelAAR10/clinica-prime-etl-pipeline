@@ -32,7 +32,7 @@ CREATE TABLE pacientes (
     nombre_completo VARCHAR(255) NOT NULL,
     sexo VARCHAR(10),
     telefono VARCHAR(25),
-    id_distrito BIGINT REFERENCES distritos(id_distrito),
+    id_distrito INT REFERENCES distritos(id_distrito),
     nacimiento_year INT,
     nacimiento_month INT,
     nacimiento_day INT,
@@ -92,7 +92,8 @@ CREATE TABLE consultas_servicios (
     id_consulta INT NOT NULL REFERENCES consultas(id_consulta),
     id_servicio INT NOT NULL REFERENCES servicios_catalogo(id_servicio),
     -- El precio de la mano de obra en el momento de la consulta
-    precio_servicio NUMERIC(10, 2) -- Un servicio solo se puede aplicar una vez por consulta
+    precio_servicio NUMERIC(10, 2), -- Un servicio solo se puede aplicar una vez por consulta
+    UNIQUE(id_consulta, id_servicio)
 );
 
 -- El Informe de Materiales - Qué productos se consumieron para un servicio en una consulta
@@ -101,10 +102,10 @@ CREATE TABLE consumo_productos (
     -- Vinculado a un servicio específico dentro de una consulta
     id_consulta_servicio INT NOT NULL REFERENCES consultas_servicios(id_consulta_servicio),
     id_producto INT NOT NULL REFERENCES productos_catalogo(id_producto),
-    cantidad_consumida INT NOT NULL DEFAULT 1,
+    cantidad_consumida NUMERIC(10,2) NOT NULL DEFAULT 1,
     -- Registramos el precio y costo en e,l momento para una contabilidad perfecta
     precio_producto NUMERIC(10, 2) NOT NULL,
-    importe_venta NUMERIC(10,2),
+    importe_venta NUMERIC(10,2), NOT NULL
     UNIQUE(id_consulta_servicio, id_producto)
 );
 
@@ -114,11 +115,11 @@ CREATE TABLE facturas (
     id_consulta INT NOT NULL REFERENCES consultas(id_consulta) UNIQUE,
     fecha_emision TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     -- Totales que se CALCULARÁN a partir de los servicios y productos.
-    total_bruto NUMERIC(12, 2) NOT NULL,
+    total_bruto NUMERIC(12, 2) NOT NULL v, 
     id_descuento INT REFERENCES descuentos(id_descuento),
     monto_descuento NUMERIC(12, 2) DEFAULT 0,
     total_neto NUMERIC(12, 2) NOT NULL,
-    -- El total del Excel, para auditoría.
+    -- El total del Excel, para aiuditoría.
     total_historico NUMERIC(12, 2) NOT NULL
 );
 
@@ -132,7 +133,11 @@ CREATE TABLE pagos(
 );
 
 DROP INDEX IF EXISTS search_notas_consulta;
-CREATE INDEX search_notas_consulta ON consultas USING GIN(to_tsvector('spanish', notas_generales));
+CREATE INDEX search_notas_consulta 
+ON consultas USING GIN (
+    to_tsvector('spanish', COALESCE(notas_generales, ''))
+);
+
 -- --- ACTO 4: LA OPTIMIZACIÓN (Índices) ---
 CREATE INDEX IF NOT EXISTS ix_pacientes_dni ON pacientes(dni);
 CREATE INDEX IF NOT EXISTS ix_consultas_fecha ON consultas(fecha_consulta);

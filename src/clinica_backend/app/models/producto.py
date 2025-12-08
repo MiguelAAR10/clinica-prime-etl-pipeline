@@ -19,11 +19,12 @@ class Producto(BaseModel):
     )
     
     nombre_producto = db.Column(db.String(150), nullable=False)
-    unidad_medida = db.Column(db.String(20)) # Ej: "Vial", "Caja", "Unidad"
+    unidad_de_medida = db.Column(db.String(20)) # Ej: "Vial", "Caja", "Unidad"
     
     # Decimales para dinero (Numeric es mejor que Float para dinero)
     costo_unitario = db.Column(db.Numeric(10, 2), default=0.00)
     precio_venta = db.Column(db.Numeric(10, 2), default=0.00)
+    stock_actual = db.Column(db.Numeric(10, 2), default=0.00)
     
     # RELACIÓN MUCHOS-A-UNO
     # Muchos productos pertenecen a una sola marca.
@@ -31,7 +32,13 @@ class Producto(BaseModel):
         'Marca',
         back_populates='productos'
     )
-
+    
+    def to_dict_completo(self):
+        data = super().to_dict()
+        if self.marca:
+            data['marca'] = self.marca.nombre_marca
+        return data
+    
     def __repr__(self):
         return f'<Producto {self.nombre_producto}>'
     
