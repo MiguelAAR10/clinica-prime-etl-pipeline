@@ -1,4 +1,4 @@
-#src/clinica_backend/app/schemas/producto_schema.py
+#src/clinica_backend/app/schemas/catalogo_schema.py
 
 '''
 SCHEMA: 

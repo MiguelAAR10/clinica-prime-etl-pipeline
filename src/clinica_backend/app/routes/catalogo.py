@@ -148,3 +148,35 @@ def listar_productos():
         return APIResponse.sucess(productos_list_schema.dump(productos))
     except Exception as e:
         return APIResponse.error(str(e), 500)
+    
+# ==================================================================================
+
+from app.schemas.catalogo_schema import ServicioSchema
+
+# ========== SERVICIOS ==========
+
+# Instancias 
+servicio_schema = ServicioSchema()
+servicio_list_schema = ServicioSchema(many = True)
+
+@catalogo_bp.route('/servicios', methods = ['POST'])
+def crear_servicios():
+    json_data = request.get_json()
+    try:
+        data = servicio_schema.load(json_data)
+        nuevo_servicio = CatalogoService.crear_servicios(data)
+        return APIResponse.success(servicio_schema.dump(nuevo_servicio),  "Servicio Creado", 201)
+    except ValidationError as e:
+        return APIResponse.error("Datos Invalidos", 400, details = e.messages)
+    except ValueError as e:
+        return APIResponse.error(str(e), 400)
+    except Exception as e:
+        return APIResponse.error(str(e), 500)
+
+@catalogo_bp.route('/servicios', methods = ['GET'])
+def listar_servicios():
+    try:
+        servicios = CatalogoService.listar_servicios()
+        return APIResponse.success(servicio_list_schema.dump(servicios))
+    except Exception as e:
+        return APIResponse.error(str(e), 500)
