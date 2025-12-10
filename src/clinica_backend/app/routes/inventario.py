@@ -47,4 +47,11 @@ def crear_movimiento():
     except Exception as e:
         return APIResponse.error("Error interno del servidor", 500, details=str(e))
     
-    
+@inventario_bp.route('/movimientos',methods = ['GET'])
+def ver_kardex(id_producto):
+    """Ver historial de un producto específico"""
+    try:
+        historial = InventarioService.obtener_kardex(id_producto)
+        return APIResponse.success(list_schema.dump(historial))
+    except Exception as e:
+        return APIResponse.error(str(e), 500)
