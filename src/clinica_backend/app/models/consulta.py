@@ -1,0 +1,63 @@
+# src/clinica_backend/app/models/consulta.py
+
+""" 
+MODELOS DE CONSULTA MEDICA (El nucleo Transaccional)
+Aqui se unen Pacientes, Servicios y Productos
+"""
+
+from app.extensions import db # Instancia de SQLAlchemy
+                              # Conectado a PostgreSQL
+from app.models.base import BaseModel # Clase base para todos los modelos
+                                      #     - Tiene (Metodos comunes)
+from sqlalchemy.sql import func # Funciones SQL
+                                #   - SQLAlchemy genera funciones Nativas SQL (CURRENT_DATE, NOW, COUNT(), SUM())
+
+#1. La Cabecera (La Cita)
+class Consulta(BaseModel):
+    __tablename__ = 'consultas'
+    
+    id_consulta = db.Column(
+        db.Integer,
+        primary_key = True, 
+        autoincrement=True
+        )
+    
+    # Relacion con Paciente
+    id_paciente = db.Column(
+        db.Integer,
+        db.ForeignKey('pacinetes.id_paciente'),
+        nullable = False
+    )
+    
+    fecha_consulta = db.Column(
+        db.Date,
+        nullable = False,
+        server_default=func.current_date()
+    )
+    notas_generales = db.Column(
+        db.Text
+     )
+    
+    # Auditoria: Guardamoes cuanto Costo en Total ese Dia (SnapShot)
+    total_historico = db.Column(
+        db.Numeric(10,2),
+        default = 0.00
+    )
+    
+    # Relaciones
+    paciente = db.relationship(
+        'Paciente',
+        backref = 'consultas'
+    )
+    
+    # Casacade = 'all, delete-orphan':Si borro la consulta se borran sus servicios
+    
+    servicios = db.relationship(
+        'ConsultaServicio',
+        backref = 'consulta',
+        cascade = 'all, delete-orphan'
+    )
+    
+    def __repre__(self):
+        return f'<Consulta #{self.id_consulta} - Paciente {self.id_paciente} - Fecha: {self.fecha_consulta}>'
+    
