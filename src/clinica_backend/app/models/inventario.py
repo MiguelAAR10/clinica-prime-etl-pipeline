@@ -65,6 +65,6 @@ class MovimientoStock(BaseModel):
     )
     
     def __repr__(self):
-        return f'<Movimiento {self.tipo_movimiento} x {self.cantidad}>'
+        return f'<Movimientqo {self.tipo_movimiento} x {self.cantidad}>'
     
     
