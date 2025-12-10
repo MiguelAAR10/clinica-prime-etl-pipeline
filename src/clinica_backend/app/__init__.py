@@ -25,6 +25,12 @@ def create_app(config_name='default'):
         from app.routes.pacientes import pacientes_bp
         app.register_blueprint(pacientes_bp, url_prefix='/api/v1')
         
+        from app.routes.catalogo import catalogo_bp
+        app.register_blueprint(catalogo_bp, url_prefix='/api/v1')
+        
+        from app.routes.inventario import inventario_bp
+        app.register_blueprint(inventario_bp, url_prefix='/api/v1')
+        
     except Exception as e:
         print(f"⚠️ Error cargando rutas: {e}")
 
