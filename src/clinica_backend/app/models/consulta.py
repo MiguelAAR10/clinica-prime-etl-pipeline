@@ -61,3 +61,40 @@ class Consulta(BaseModel):
     def __repre__(self):
         return f'<Consulta #{self.id_consulta} - Paciente {self.id_paciente} - Fecha: {self.fecha_consulta}>'
     
+# 2. DETALLE DE SERVICIOS (Que le hicieron?)
+class ConsultaServicio(BaseModel):
+    __tablename__ = 'consultas_servicios'
+    
+    id_consulta_servicio = db.Column(
+        db.Integer,
+        primary_key = True,
+        autoincrement = True
+    )
+    
+    id_consulta = db.Column(
+        db.Integer,
+        db.ForeignKey('consultas.id_consulta'),
+        nullable = False
+    )
+    
+    id_servicio = db.Column(
+        db.Integer,
+        db.relationship('servicios_catalogo.id_servicio'),
+        nullable = False
+    )
+    
+    precio_servicio = db.Column(
+        db.Numeric(10,2),
+        nullable = False
+    )
+    
+    # Relaciones
+    servicio = db.relationship(
+        'Servicio'
+    )
+    # Un servicio puedo consumir N productos (ej: 1 Botox consume 1 + 1 Vial)
+    consumos = db.relationship(
+        'ConsumoProducto',
+        backref = 'consulta_servicio',
+        cascade = 'all, delete-orphan'
+    )
