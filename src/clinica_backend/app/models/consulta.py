@@ -88,13 +88,38 @@ class ConsultaServicio(BaseModel):
         nullable = False
     )
     
-    # Relaciones
+    
+    # ----------- db.relationship ------------  
+    # Es una Relacion Entre objetos Python no entre tablas SQL
+    # ORM
+    #   - Crea un puente para navegar entre objetos como si fuerna atributos
     servicio = db.relationship(
         'Servicio'
     )
     # Un servicio puedo consumir N productos (ej: 1 Botox consume 1 + 1 Vial)
+    
     consumos = db.relationship(
         'ConsumoProducto',
         backref = 'consulta_servicio',
         cascade = 'all, delete-orphan'
     )
+    
+# 3. EL CONSUMO DE MATERIALES (lo que resta inventario)
+class ConsumoProducto(BaseModel):
+    __tablename__ = "consumo_productos"
+    
+    id_consumo = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    
+    id_consulta_servicio = db.Column(db.Integer, db.ForeignKey('consultas_servicios.id_consulta_servicio'), nullable=False)
+    id_producto = db.Column(db.Integer, db.ForeignKey('productos_catalogo.id_producto'), nullable=False)
+    
+    cantidad_consumida = db.Column(db.Numeric(10, 2), nullable=False)
+    
+    # Precio congelado del producto (Costo)
+    precio_producto = db.Column(db.Numeric(10, 2), nullable=False)
+    
+    # Calculado: cantidad * precio
+    importe_venta = db.Column(db.Numeric(10, 2))
+
+    # Relaciones
+    producto = db.relationship('Producto')
