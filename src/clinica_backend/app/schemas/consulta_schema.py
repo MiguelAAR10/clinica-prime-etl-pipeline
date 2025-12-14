@@ -567,3 +567,84 @@ class ConsultaCreateSchema(ma.SQLAlchemyAutoSchema):
     Si TODO pasa → Devuelve diccionario limpio
     Si ALGO falla → Devuelve diccionario de errores
     """
+    
+# ═══════════════════════════════════════════════════════════
+# SCHEMA DE RESPUESTA: ConsultaResponseSchema
+# Para serializar (convertir objetos Python → JSON)
+# ═══════════════════════════════════════════════════════════
+
+class ConsultaResponseSchema(ma.SQLAlchemyAutoSchema):
+    """
+    ¿PARA QUÉ SIRVE?
+    ----------------
+    Los schemas anteriores son para ENTRADA (validar JSON del frontend).
+    Este schema es para SALIDA (convertir objetos de DB → JSON).
+    
+    FLUJO:
+    ------
+    1. Frontend envía JSON → ConsultaCreateSchema valida
+    2. Backend guarda en DB
+    3. Backend lee de DB → ConsultaResponseSchema serializa
+    4. Frontend recibe JSON
+    
+    ANALOGÍA: Traductor Bidireccional
+    ----------------------------------
+    - ConsultaCreateSchema = Español → Inglés (entrada)
+    - ConsultaResponseSchema = Inglés → Español (salida)
+    """
+    
+    class Meta:
+        model = Consulta
+        # NO tiene load_instance (no se usa para cargar)
+        # NO tiene unknown (no se usa para validar entrada)
+    
+    id_consulta = ma.auto_field()
+    """
+    ¿QUÉ ES 'ma.auto_field()'?
+    --------------------------
+    Le dice a Marshmallow: "Usa el campo tal cual está en el modelo".
+    
+    Equivalente a:
+    id_consulta = fields.Integer()
+    
+    Pero más corto y automático.
+    
+    ¿CUÁNDO USAR auto_field()?
+    --------------------------
+    Cuando NO necesitas validaciones extra.
+    
+    Para respuestas, generalmente no necesitas validar
+    (porque los datos ya están en la DB y son correctos).
+    """
+    
+    fecha_consulta = ma.auto_field()
+    total_historico = ma.auto_field()
+    
+    """
+    EJEMPLO DE USO:
+    ---------------
+    
+    # En tu ruta (route):
+    @app.route('/consultas/<int:id>', methods=['GET'])
+    def get_consulta(id):
+        consulta = Consulta.query.get(id)
+        schema = ConsultaResponseSchema()
+        return schema.dump(consulta)
+    
+    # Objeto Python:
+    consulta = Consulta(
+        id_consulta=1,
+        fecha_consulta=date(2025, 1, 15),
+        total_historico=Decimal('600.00')
+    )
+    
+    # Después de schema.dump(consulta):
+    {
+        "id_consulta": 1,
+        "fecha_consulta": "2025-01-15",
+        "total_historico": "600.00"
+    }
+    
+    ¡Conversión automática de tipos Python → JSON!
+    """
+    
