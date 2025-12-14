@@ -22,3 +22,4 @@ from .paciente import Paciente
 from .marca import Marca
 from .producto import Producto
 from .servicio import Servicio
+from .consulta import Consulta, ConsultaServicio, ConsumoProducto
