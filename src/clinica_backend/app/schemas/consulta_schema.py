@@ -229,3 +229,341 @@ class ConsumoProductoSchema(ma.SQLAlchemyAutoSchema):
     
     Regla de negocio: "Toda cantidad debe ser positiva"
     """ 
+    precio_producto = fields.Decimal(
+        required = True, 
+        validate = validate.Range(min = 0)
+    )
+    
+
+# Schema para El Servicio Aplicado (Nivel Medio)
+class ConsultaServicioSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = ConsultaServicio
+        load_instance = False # Devuelve Diccionario Python ya que permite más control
+        unknown = EXCLUDE
+    
+    id_servicio = fields.Integer(
+        required = True
+    )
+    
+    precio_servicio = fields.Decimal(
+        required = True,
+        validate = validate.Range(min = 0)
+    )
+    
+    # Lista Anidad de Productos
+    productos_usados = fields.List(
+        fields.Nested(ConsumoProductoSchema),
+        required = False,
+        load_default = []  
+    )
+    
+    """
+    ------------------
+    
+    1. fields.List(...)
+       ----------------
+       Valida que 'productos_usados' sea una LISTA (array).
+       
+       ✓ []
+       ✓ [{"id_producto": 10, ...}]
+       ✓ [{"id_producto": 10, ...}, {"id_producto": 11, ...}]
+       ✗ {"id_producto": 10}  ← No es lista
+       ✗ "hola"  ← No es lista
+       ✗ 123  ← No es lista
+    
+    2. fields.Nested(ConsumoProductoSchema)
+       ------------------------------------
+       Valida que CADA elemento de la lista sea un objeto
+       que cumpla con ConsumoProductoSchema.
+       
+       ANALOGÍA: Cajas dentro de Cajas
+       --------------------------------
+       - Lista = Caja grande
+       - Nested = Cada caja pequeña dentro debe tener
+                  la forma de ConsumoProductoSchema
+       
+       Marshmallow hace esto:
+       
+       for producto in productos_usados:
+           ConsumoProductoSchema().load(producto)
+           # Si alguno falla, rechaza todo
+    
+    3. required=False
+       --------------
+       Un servicio PUEDE no consumir productos.
+       
+       Ejemplo: "Consulta de Evaluación" (solo mano de obra)
+       
+       ✓ {"id_servicio": 5, "precio": 500}
+         # Sin 'productos_usados' → OK
+       
+       ✓ {"id_servicio": 5, "precio": 500, "productos_usados": []}
+         # Lista vacía → OK
+    
+    4. load_default=[]
+       ---------------
+       Si el JSON NO incluye 'productos_usados', Marshmallow
+       automáticamente pone una lista vacía.
+       
+       JSON recibido:
+       {"id_servicio": 5, "precio": 500}
+       
+       Después de validar:
+       {
+           "id_servicio": 5,
+           "precio": 500,
+           "productos_usados": []  ← Marshmallow lo agregó
+       }
+       
+       ¿POR QUÉ?
+       ---------
+       Para que tu código no tenga que hacer:
+       
+       if 'productos_usados' in data:
+           for producto in data['productos_usados']:
+               # ...
+       
+       Siempre puedes asumir que existe:
+       
+       for producto in data['productos_usados']:  # Siempre funciona
+           # ...
+    
+    EJEMPLO COMPLETO DE VALIDACIÓN:
+    --------------------------------
+    
+    # JSON válido:
+    {
+        "id_servicio": 5,
+        "precio": 500,
+        "productos_usados": [
+            {"id_producto": 10, "cantidad": 1, "precio": 100}
+        ]
+    }
+    # ✅ Pasa validación
+    
+    # JSON inválido (producto sin cantidad):
+    {
+        "id_servicio": 5,
+        "precio": 500,
+        "productos_usados": [
+            {"id_producto": 10, "precio": 100}  ← Falta 'cantidad'
+        ]
+    }
+    # ❌ Error:
+    {
+        "productos_usados": {
+            "0": {  ← Índice del array
+                "cantidad_consumida": ["Missing data for required field."]
+            }
+        }
+    }
+    
+    # JSON inválido (cantidad negativa):
+    {
+        "id_servicio": 5,
+        "precio": 500,
+        "productos_usados": [
+            {"id_producto": 10, "cantidad": -5, "precio": 100}
+        ]
+    }
+    # ❌ Error:
+    {
+        "productos_usados": {
+            "0": {
+                "cantidad_consumida": ["Must be greater than or equal to 0.01."]
+            }
+        }
+    }
+    """
+    
+# ═══════════════════════════════════════════════════════════
+# SCHEMA NIVEL 3: ConsultaCreateSchema
+# Valida la consulta completa (cabecera + servicios + productos)
+# ═══════════════════════════════════════════════════════════
+
+class ConsultaCreateSchema(ma.SQLAlchemyAutoSchema):
+    """
+    ¿QUÉ VALIDA?
+    ------------
+    El JSON COMPLETO que envía el frontend:
+    
+    {
+        "id_paciente": 1,
+        "notas": "Paciente sensible",
+        "fecha_consulta": "2025-01-15",
+        "servicios": [
+            {
+                "id_servicio": 5,
+                "precio": 500,
+                "productos_usados": [
+                    {"id_producto": 10, "cantidad": 1, "precio": 100}
+                ]
+            }
+        ]
+    }
+    
+    ANALOGÍA: Orden Completa de Restaurante
+    ----------------------------------------
+    - Consulta = Orden completa
+    - id_paciente = Mesa #1
+    - notas = "Sin cebolla"
+    - servicios = Lista de platos
+        - Cada plato tiene ingredientes (productos)
+    """
+    
+    class Meta:
+        model = Consulta
+        load_instance = False
+        unknown = EXCLUDE
+    
+    id_paciente = fields.Integer(required=True)
+    
+    notas_generales = fields.String(allow_none=True)
+    """
+    ¿QUÉ ES 'allow_none=True'?
+    --------------------------
+    Permite que el campo sea null/None.
+    
+    ✓ {"id_paciente": 1, "notas_generales": "Texto"}
+    ✓ {"id_paciente": 1, "notas_generales": null}
+    ✓ {"id_paciente": 1}  ← Sin el campo (se convierte a None)
+    
+    DIFERENCIA CON required=False:
+    ------------------------------
+    - required=False: El campo puede NO existir en el JSON
+    - allow_none=True: El campo puede existir pero ser null
+    
+    Puedes combinarlos:
+    fields.String(required=False, allow_none=True)
+    # El campo es opcional, y si existe puede ser null
+    """
+    
+    fecha_consulta = fields.Date(required=False)
+    """
+    ¿QUÉ HACE fields.Date?
+    ----------------------
+    Valida y convierte fechas.
+    
+    FORMATOS ACEPTADOS:
+    -------------------
+    ✓ "2025-01-15" (ISO 8601)
+    ✓ "2025-01-15T10:30:00" (con hora, extrae solo la fecha)
+    ✗ "15/01/2025" (formato no estándar)
+    ✗ "hola" (no es fecha)
+    
+    CONVERSIÓN AUTOMÁTICA:
+    ----------------------
+    JSON: "2025-01-15" (string)
+    Después de validar: date(2025, 1, 15) (objeto Python)
+    
+    ¿POR QUÉ required=False?
+    ------------------------
+    Porque si no se envía, tu modelo tiene:
+    fecha_consulta = db.Column(db.Date, server_default=func.current_date())
+    
+    PostgreSQL pondrá la fecha actual automáticamente.
+    """
+    
+    # ═══════════════════════════════════════════════════════
+    # LISTA ANIDADA DE SERVICIOS (Nivel 2 de anidación)
+    # ═══════════════════════════════════════════════════════
+    
+    servicios = fields.List(
+        fields.Nested(ConsultaServicioSchema),
+        required=True,
+        validate=validate.Length(min=1, error="La consulta debe tener al menos un servicio.")
+    )
+    """
+    DESGLOSE COMPLETO:
+    ------------------
+    
+    1. fields.List(...)
+       ----------------
+       'servicios' debe ser una lista.
+    
+    2. fields.Nested(ConsultaServicioSchema)
+       -------------------------------------
+       Cada elemento de la lista debe cumplir ConsultaServicioSchema.
+       
+       Y ConsultaServicioSchema tiene:
+       productos_usados = fields.List(fields.Nested(ConsumoProductoSchema))
+       
+       ¡ANIDACIÓN DE 3 NIVELES!
+       
+       Consulta
+         └─ servicios[] (Lista)
+             └─ ConsultaServicioSchema
+                 └─ productos_usados[] (Lista)
+                     └─ ConsumoProductoSchema
+    
+    3. required=True
+       -------------
+       Una consulta SIN servicios no tiene sentido.
+       
+       ✗ {"id_paciente": 1}
+         # Error: "Missing data for required field."
+       
+       ✗ {"id_paciente": 1, "servicios": null}
+         # Error: "Field may not be null."
+    
+    4. validate.Length(min=1, ...)
+       ---------------------------
+       La lista debe tener AL MENOS 1 elemento.
+       
+       ✗ {"id_paciente": 1, "servicios": []}
+         # Error: "La consulta debe tener al menos un servicio."
+       
+       ✓ {"id_paciente": 1, "servicios": [{"id_servicio": 5, ...}]}
+         # OK
+       
+       SINTAXIS COMPLETA:
+       ------------------
+       validate.Length(
+           min=1,                    # Mínimo de elementos
+           max=None,                 # Máximo (None = sin límite)
+           equal=None,               # Exactamente N elementos
+           error="Mensaje custom"    # Mensaje de error
+       )
+       
+       EJEMPLOS:
+       ---------
+       validate.Length(min=1, max=10)
+       # Entre 1 y 10 servicios
+       
+       validate.Length(equal=3)
+       # Exactamente 3 servicios
+    
+    FLUJO DE VALIDACIÓN COMPLETO:
+    -----------------------------
+    
+    JSON recibido:
+    {
+        "id_paciente": 1,
+        "servicios": [
+            {
+                "id_servicio": 5,
+                "precio": 500,
+                "productos_usados": [
+                    {"id_producto": 10, "cantidad": 1, "precio": 100}
+                ]
+            }
+        ]
+    }
+    
+    Marshmallow hace:
+    
+    1. Valida 'id_paciente' (Integer, required)
+    2. Valida 'servicios' (List, required, min=1)
+    3. Para cada servicio en 'servicios':
+        a. Valida 'id_servicio' (Integer, required)
+        b. Valida 'precio' (Decimal, required, min=0)
+        c. Valida 'productos_usados' (List, optional)
+        d. Para cada producto en 'productos_usados':
+            i. Valida 'id_producto' (Integer, required)
+            ii. Valida 'cantidad' (Decimal, required, min=0.01)
+            iii. Valida 'precio' (Decimal, required, min=0)
+    
+    Si TODO pasa → Devuelve diccionario limpio
+    Si ALGO falla → Devuelve diccionario de errores
+    """
