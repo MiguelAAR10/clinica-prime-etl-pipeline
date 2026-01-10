@@ -31,6 +31,9 @@ def create_app(config_name='default'):
         from app.routes.inventario import inventario_bp
         app.register_blueprint(inventario_bp, url_prefix='/api/v1')
         
+        from app.routes.consultas import consultas_bp
+        app.register_blueprint(consultas_bp, url_prefix='/api/v1')
+        
     except Exception as e:
         print(f"⚠️ Error cargando rutas: {e}")
 
