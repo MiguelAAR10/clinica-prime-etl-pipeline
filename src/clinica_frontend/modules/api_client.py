@@ -149,4 +149,124 @@ class APIClient:
                 "error": f"Eror inesperafo : {str(e)}",
                 "error_type": "unknown"
             }
+    def put(self, endpoint: str, data: Dict) -> Dict[str, Any]:
+        
+        """
+        PUT request generico (Actualizar recurso completo).
+        
+        PUT actualiza TODOS los campos del recurso.
+        Diferencia con PATCH: PUT reemplaza todo, PATCH solo lo que envías.
+        
+        Args:
+            endpoint: Ruta relativa (ej: "/pacientes/5")
+            data: Diccionario con datos a actualizar
+        
+        Returns:
+            Dict con {"success": bool, "status_code": int, "data": dict, "error": dict}
+        
+        Example:
+            >>> client = APIClient()
+            >>> result = client.put("/pacientes/5", {"nombre": "Juan", "edad": 35})
+            >>> if result["success"]:
+            >>>     print("Paciente actualizado")
+        """
+        try:
+            # LÍNEA 1: Construir URL completa
+            url = f"{self.base_url}{endpoint}"
+            # Ejemplo: "http://localhost:5000/api/v1" + "/pacientes/5"
+            # Resultado: "http://localhost:5000/api/v1/pacientes/5"
             
+            # LÍNEA 2: Hacer petición PUT
+            response = self.session.put(
+                url,
+                json=data,           # Convierte dict a JSON automaticamente
+                timeout=self.timeout  # Espera máximo 10 segundos (default)
+            )
+            # ¿Por qué json= ? Porque Flask espera Content-Type: application/json
+            # Requests automáticamente setea el header correcto
+            
+            # LÍNEA 3: Procesar respuesta (success, status_code, data, error)
+            return self._handle_response(response)
+            
+        except requests.exceptions.Timeout:
+            # Timeout: El servidor no respondió en 10 segundos
+            return {
+                "success": False,
+                "error": "El servidor tardó demasiado en responder",
+                "error_type": "timeout"  # ← IMPORTANTE: especificar tipo
+            }
+        
+        except requests.exceptions.ConnectionError:
+            # Connection Error: No hay conexión con el servidor
+            return {
+                "success": False,
+                "error": "No se puede conectar al servidor",
+                "error_type": "connection"
+            }
+        
+        except Exception as e:
+            # Cualquier otro error inesperado
+            return {
+                "success": False,
+                "error": f"Error inesperado: {str(e)}",
+                "error_type": "unknown"
+            }
+
+
+    def delete(self, endpoint: str) -> Dict[str, Any]:
+        """
+        DELETE request generico (Eliminar recurso).
+        
+        DELETE elimina completamente un recurso de la base de datos.
+        Generalmente devuelve 204 No Content si tuvo éxito.
+        
+        Args:
+            endpoint: Ruta relativa (ej: "/pacientes/5")
+        
+        Returns:
+            Dict con {"success": bool, "status_code": int, "data": dict, "error": dict}
+        
+        Example:
+            >>> client = APIClient()
+            >>> result = client.delete("/pacientes/5")
+            >>> if result["success"]:
+            >>>     print("Paciente eliminado")
+        """
+        try:
+            # LÍNEA 1: Construir URL completa
+            url = f"{self.base_url}{endpoint}"
+            # Ejemplo: "http://localhost:5000/api/v1" + "/pacientes/5"
+            # Resultado: "http://localhost:5000/api/v1/pacientes/5"
+            
+            # LÍNEA 2: Hacer petición DELETE
+            # IMPORTANTE: DELETE NO envía un body (no tiene json=data)
+            response = self.session.delete(
+                url,
+                timeout=self.timeout  # Espera máximo 10 segundos
+            )
+            # ¿Por qué no json= ? Porque DELETE no necesita enviar datos
+            # Solo le dices "elimina lo que está en esta URL"
+            
+            # LÍNEA 3: Procesar respuesta
+            return self._handle_response(response)
+            
+        except requests.exceptions.Timeout:
+            return {
+                "success": False,
+                "error": "El servidor tardó demasiado en responder",
+                "error_type": "timeout"
+            }
+        
+        except requests.exceptions.ConnectionError:
+            return {
+                "success": False,
+                "error": "No se puede conectar al servidor",
+                "error_type": "connection"
+            }
+        
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Error inesperado: {str(e)}",
+                "error_type": "unknown"
+            }
