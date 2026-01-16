@@ -286,4 +286,36 @@ class APIClient:
         """
         return self.get("/pacientes", params = {"limit": limit, "offset": offset})
     
+    def get_paciente(self, paciente_id: int) -> Dict[str, Any]:
+        """d
+        Obtiene un Paciente especifico por ID
+        
+        Args:
+            paciente_id: ID del Paciente
+        
+        Returns:
+            Dict con estrucutura: {success, status_code, data, error}
+        """
+        return self.get(f"/pacientes/{paciente_id}")
     
+    def crear_paciente(self, data: Dict) -> Dict[str, Any]:
+        """
+        Crea un nuevo paciente.
+        
+        Args:
+            data: Diccionario con datos del paciente
+                {
+                    "dni": "12345678",
+                    "nombreCompleto": "Juan Pérez",
+                    "telefono": "987654321",
+                    "idDistrito": 1,
+                    "sexo": "M",
+                    "nacimientoYear": 1990,
+                    "nacimientoMonth": 1,
+                    "nacimientoDay": 15
+                }
+        
+        Returns:
+            Dict con estructura: {success, status_code, data, error}
+        """
+        return self.post("/pacientes", data)
