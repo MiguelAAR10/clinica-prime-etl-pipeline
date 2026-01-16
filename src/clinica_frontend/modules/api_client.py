@@ -270,3 +270,20 @@ class APIClient:
                 "error": f"Error inesperado: {str(e)}",
                 "error_type": "unknown"
             }
+
+    # ============================================
+    # METODOS ESPECIFICOS (PACIENTES)
+    # ===========================================
+    
+    def get_pacientes(self, limit: int = 100, offset: int = 0) -> Dict[str, Any]:
+        """
+        Obtiene lista de Pacientes.
+        Args:
+            - limit: Numero maximo de pacientes a devolver
+            
+        Returns: 
+            - Dict con Lista de Pacientes o Error    
+        """
+        return self.get("/pacientes", params = {"limit": limit, "offset": offset})
+    
+    
