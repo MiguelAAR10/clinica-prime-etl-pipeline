@@ -91,6 +91,8 @@ class APIClient:
                 timeout = self.timeout
             )
             
+            return self._handle_response(response)
+            
         except requests.exceptions.Timeout:
             return {
                 "success": False,
@@ -287,7 +289,7 @@ class APIClient:
         return self.get("/pacientes", params = {"limit": limit, "offset": offset})
     
     def get_paciente(self, paciente_id: int) -> Dict[str, Any]:
-        """d
+        """
         Obtiene un Paciente especifico por ID
         
         Args:
@@ -319,3 +321,23 @@ class APIClient:
             Dict con estructura: {success, status_code, data, error}
         """
         return self.post("/pacientes", data)
+    
+    def actualizar_paciente(self, id_paciente: int, data: Dict) -> Dict[str,Any]:
+        """
+        Actualiza un paciente existente.
+        
+        Args:
+            paciente_id: ID del paciente a Actualizar
+            data: Diccionario con campos a Actualizar 
+        
+        Returns:
+            Dict con estructura: {success, status_cODE }
+        """
+        return self.put(f"/pacientes/{id_paciente}", data)
+    
+    def eliminar_paciente(self, id_paciente: int) -> Dict[str, Any]:
+        """
+        Eliminar paciente en base al num de su id
+        
+        """
+        return self.delete(f"/paciente/{id_paciente}")
