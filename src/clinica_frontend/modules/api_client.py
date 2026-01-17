@@ -340,6 +340,6 @@ class APIClient:
         Eliminar paciente en base al num de su id
         
         """
-        return self.delete(f"/paciente/{id_paciente}")
+        return self.delete(f"/pacientes/{id_paciente}")
     
     
