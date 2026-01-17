@@ -61,3 +61,12 @@ Project Analysis: MediStock Core
     *   Added `actualizar_paciente` and `eliminar_paciente` methods to the `ApiClient` in `src/clinica_frontend/modules/api_client.py`.
     *   This change enables the frontend application to update and delete patient records via the backend API.
     *   This is a key step towards providing full CRUD (Create, Read, Update, Delete) functionality for patient management in the user interface.
+
+**2026-01-17 18:44:59**
+
+*   **Refactor:** API Client Enhancement
+*   **Details:**
+    *   **Endpoint Correction:** Fixed a typo in the `eliminar_paciente` method in `src/clinica_frontend/modules/api_client.py` to target the correct endpoint (`/pacientes/{id_paciente}`).
+    *   **New Endpoints Added:** The API client was expanded to include methods for new backend functionalities:
+        *   **Inventario:** Added `get_productos`, `get_movimientos_stock`, `registrar_entrada_stock`, and `registrar_salida_stock` to interact with the inventory endpoints.
+        *   **Health Check:** Added a `health_check` method to verify backend service availability.
