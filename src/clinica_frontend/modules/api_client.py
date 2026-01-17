@@ -342,4 +342,141 @@ class APIClient:
         """
         return self.delete(f"/pacientes/{id_paciente}")
     
+    # ==================================================
+    # METODOS  ESPECIFICOS (INVENTARIO)
+    # ==================================================
     
+    def get_productos(
+        self,
+        limit: int=100,
+        offset: int=0     
+        ) -> Dict[str, Any]:
+        """
+        Obtiene lista de productos.
+    
+        Args:
+            limit: Máximo de registros (default: 100)
+            offset: Desplazamiento para paginación (default: 0)
+        
+        Returns:
+            Dict con estructura: {success, status_code, data, error}
+    
+        """
+        
+        return self.get("/productos", params={"limit":limit, "offset":offset})
+    
+    def get_movimientos_stock(
+        self, 
+        id_producto: Optional[int] = None,
+        limit: int = 100,
+        offset: int = 0        
+    ) -> Dict[str, Any]:
+        """
+        Obtiene movimientos de stock (kárdex).
+        
+        Args:
+            id_producto: Filtrar por producto (optional)
+            limit: Máximo de registros (default: 100)
+            offset: Desplazamiento para paginación (default: 0)
+        
+        Returns:
+            Dict con estructura: {success, status_code, data, error}
+        """
+        
+        params = {"limit": limit, "offset": offset}
+        
+        if id_producto is not None:
+            params["id_producto"] = id_producto
+        
+        return self.get("/inventario/movimientos", params=params)
+        
+    def registrar_entrada_stock(
+        self,
+        id_producto: int,
+        cantidad: int, 
+        referencia: str = None
+    ):
+        """
+        Registra entrada de Stock para un producto.
+        
+        Parametros:
+            id_producto: int - ID del producto (debe existir en DB)
+            cantidad: int - Numero de unidades a registrar (debe ser > 0)
+            referencia: str - Numero de orden de compra o referencia interna (Opcional)
+        """
+        if id_producto <= 0:
+            raise ValueError("id_producto debe ser > 0")
+        if cantidad <= 0:
+            raise ValueError("cantidad debe ser > 0")
+        data = {
+            "id_producto": id_producto,
+            "cantidad": cantidad,
+            "tipo_movimiento": "ENTRADA", # <- GARANTIZADO
+            "referencia": referencia
+        }
+        
+        return self.post("/inventario/movimientos", data)
+    
+    def registrar_salida_stock(
+        self,
+        id_producto: int,
+        cantidad: int,
+        razon: str = "Consumo"
+    ):
+        data = {
+            "id_producto": id_producto,
+            "cantidad": cantidad,
+            "tipo_movimiento": "SALIDA", 
+            "razon": razon
+        }
+        
+        return self.post("inventario/movimientos", data)
+
+    # ==============================================
+    # HEALTH CHECK
+    # ==============================================
+    
+    def health_check(self) -> Dict[str, Any]:
+        """
+        Verifica si el backend esta vivo.
+        
+        Returns:
+            Dict con status del servidor 
+        """
+        try: 
+            # Endpoint de health (Flask)
+            response = self.session.get(
+                f"{self.base_url.replace('/api/v1', '')}/health", timeout=5
+            )
+            
+            return {
+                "success":response.ok, 
+                "status":response.json() if response.ok else None
+            }
+            
+        except:
+            return {
+                "success":False,
+                "status": "offline"
+            }
+            
+# =============================================
+# INSTANCIA GLOBAL
+# =============================================
+    
+api_client = APIClient()
+
+"""
+¿POR QUÉ SINGLETON?
+-------------------
+Para reutilizar la misma sesión HTTP (conexiones persistentes).
+
+USO:
+----
+# En cualquier módulo:
+from modules.api_client import api_client
+
+result = api_client.get_pacientes()
+if result["success"]:
+    pacientes = result["data"]["data"]
+"""  
