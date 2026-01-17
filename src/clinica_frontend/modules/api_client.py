@@ -341,3 +341,5 @@ class APIClient:
         
         """
         return self.delete(f"/paciente/{id_paciente}")
+    
+    

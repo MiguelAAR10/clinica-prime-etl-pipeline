@@ -1,4 +1,4 @@
- Project Analysis: MediStock Core
+Project Analysis: MediStock Core
 
   ---
 
@@ -27,6 +27,7 @@
      patients, tracking their identity and history. A key feature is
      the "Heuristic Identity Reconstruction" to backfill missing
      patient IDs from legacy data, which is crucial for data
+
      integrity.
    * Medical Consultations: The system records medical appointments,
      the services performed during those appointments, and the total
@@ -48,3 +49,15 @@
   efficiency and enable data-driven decisions.
 
   ---
+---
+
+## Project Log
+
+**2026-01-17 14:08:21**
+
+*   **Commit:** `3a05da9`
+*   **Feature:** Frontend Patient Management
+*   **Details:**
+    *   Added `actualizar_paciente` and `eliminar_paciente` methods to the `ApiClient` in `src/clinica_frontend/modules/api_client.py`.
+    *   This change enables the frontend application to update and delete patient records via the backend API.
+    *   This is a key step towards providing full CRUD (Create, Read, Update, Delete) functionality for patient management in the user interface.
