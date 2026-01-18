@@ -148,7 +148,7 @@ class APIClient:
         except Exception as e:
             return {
                 "success": False,
-                "error": f"Eror inesperafo : {str(e)}",
+                "error": f"Error inesperafo : {str(e)}",
                 "error_type": "unknown"
             }
     def put(self, endpoint: str, data: Dict) -> Dict[str, Any]:
@@ -431,6 +431,20 @@ class APIClient:
         }
         
         return self.post("inventario/movimientos", data)
+    
+    # ═══════════════════════════════════════════════════════
+    # MÉTODOS FALTANTES (CONSULTAS)
+    # ═══════════════════════════════════════════════════════
+
+    def get_servicios(self) -> Dict[str, Any]:
+        """Obtiene catálogo de servicios (Botox, etc)."""
+        return self.get("/servicios")
+
+    def registrar_consulta(self, data: Dict) -> Dict[str, Any]:
+        """
+        Registra la consulta completa (Acto médico + Consumo).
+        """
+        return self.post("/consultas", data)
 
     # ==============================================
     # HEALTH CHECK
