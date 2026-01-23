@@ -59,19 +59,25 @@ class Config:
     STREAMLIT_LAYOUT = os.getenv("LAYOUT", "wide")
     
     DNI_MIN_LENGTH = 6
-    DNI_MAX_LENGTH = 12# Nombre
+    DNI_MAX_LENGTH = 12
+    
+    # Nombre
     NOMBRE_MIN_LENGTH = 3
-    NOMBRE_MAX_LENGTH = 100# Teléfono
+    NOMBRE_MAX_LENGTH = 100
+    
+    # Teléfono
     TELEFONO_MIN_LENGTH = 7
-    TELEFONO_MAX_LENGTH = 15# Edad
+    TELEFONO_MAX_LENGTH = 15
+    
+    # Edad
     EDAD_MINIMA = 0
     EDAD_MAXIMA = 120
     
-    CACHE_TTL_PACIENTES = 300# 5 minutos (datos estables)
-    CACHE_TTL_INVENTARIO = 60# 1 minuto (datos más dinámicos)
+    CACHE_TTL_PACIENTES = 300  # 5 minutos (datos estables)
+    CACHE_TTL_INVENTARIO = 60  # 1 minuto (datos más dinámicos)
     
     # =============================
-    # Validaion de COnfiguracion
+    # Validacion de Configuracion
     # =============================
     
     @classmethod
@@ -97,7 +103,7 @@ class Config:
         
         if cls.API_TIMEOUT > 120:
              print(
-                f"⚠️ ADVERTENCIA: API_TIMEOUT es muy alto ({cls.API_TIMEOUT}s). "f"Considera usar un valor entre 5-30 segundos."
+                f"⚠️ ADVERTENCIA: API_TIMEOUT es muy alto ({cls.API_TIMEOUT}s). Considera usar un valor entre 5-30 segundos."
             )
         
         

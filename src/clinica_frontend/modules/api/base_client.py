@@ -1,134 +1,103 @@
 # src/clinica_frontend/modules/api/base_client.py
+"""
+Cliente HTTP base para comunicación con Backend Flask.
 
-# -------------------------------------------------------------
-# CLIENTE HTTP Reutilizable
-# -------------------------------------------------------------
-# Proposito:
-#       - Base para Comunicacion con Backend Flask
-#       - Centraliza todas las Llamadas a la API
-# --------------------------------------------------------------
+Arquitectura:
+- Herencia: Todos los clientes específicos heredan de BaseAPIClient
+- DRY: Manejo de errores centralizado
+- Logging: Entrada/Salida completa para debugging
+- Validación: Endpoints seguros
+- Consistencia: Respuestas siempre normalizadas
+
+Autor: MediStock Team
+Versión: 2.0
+"""
 
 import requests
-    # Libreria HTTP(HiperText Transfer Protocol) de Terceros (No viene con Python)
-    # Contiene: (Clase: `Session()`, Funciones: get(), post(), put(), delete(), etc.)
-    # Request Alto Nivel: Simple y Poderoso
-    
-from typing import Dict, List, Optional, Any    
-    # Modulo Estandar Python
-    #    - Proposito: Type Hints (Anotaciones d Tipo)
-    #    - Mejores Practicas de Tipo Profesional
-
+from typing import Dict, Any, Optional
 import logging
-    # Modulo Estandar Python para Registro de Logs (Eventos)
-    # Porposito:
-    #   - Dejar Rastro  de lo que hace la Aplicacion1``
-    
-from config import Config
+from clinica_frontend.config import Config
 
-# Configuracion Logger
+# Configurar logger
 logger = logging.getLogger(__name__)
-# ├─ Crear/obtener logger para este módulo
-# ├─ Si ya existe: lo reutiliza
-# ├─ Si no existe: lo crea
-# └─ Resultado: objeto logger con nombre único
 
-"""
-DEBUG:     Información detallada (solo desarrollo)
-INFO:      Información general (normal)
-WARNING:   Advertencia (algo anormal pero sigue)
-ERROR:     Error (algo falló, pero app sigue)
-CRITICAL:  Crítico (app va a fallar)
 
-Ejemplo visual:
-DEBUG:    "GET /pacientes | Params: {'limit': 10}"
-INFO:     "Usuario Juan inició sesión"
-WARNING:  "Retry 3 de 5 en GET /pacientes"
-ERROR:    "TIMEOUT en GET /pacientes"
-CRITICAL: "Base de datos no disponible"
-"""
-
-class APIClient: 
+class BaseAPIClient:
     """
-    Cliente HTTP para comunicarse con el Backend Flask
+    Cliente HTTP genérico para comunicación con Backend.
     
-    Ventajas de Centralizar: 
-        - Manejo de Errores Consistentes
-        - Headers Comunes (auth, content-type)
-        - logging Centralizado
-        - Facil de TRestear (mock)
-        
-    Patron de Diseno: Singleton (una sola instancia)
+    Responsabilidades:
+    1. Ejecutar peticiones HTTP (GET, POST, PUT, DELETE)
+    2. Manejar errores de red de forma centralizada
+    3. Normalizar respuestas del servidor
+    4. Loguear todas las operaciones
+    5. Validar parámetros de entrada
+    
+    Uso:
+        # Heredar en clientes específicos
+        class PacientesAPI(BaseAPIClient):
+            def get_lista(self):
+                return self.get("/pacientes")
     """
 
-    def __init__(self): 
+    def __init__(self):
+        """
+        Inicializa cliente HTTP con configuración desde Config.
+        
+        Crea una sesión HTTP reutilizable (mejor performance que
+        requests individuales) y configura headers por defecto.
+        """
         self.base_url = Config.API_BASE_URL
         self.timeout = Config.API_TIMEOUT
-        self.session = requests.Session() # Reutiliza Conexiones
         
-        # Headers Comunes para todas las requests
+        # Session reutiliza conexión TCP (HTTP Keep-Alive)
+        self.session = requests.Session()
+        
+        # Headers por defecto para todas las peticiones
         self.session.headers.update({
             "Content-Type": "application/json",
             "Accept": "application/json",
             "User-Agent": "MediStock-Frontend/1.0"
-                # User-Agent: Identificacion del Cliente HTTP
-                # Carnet Identidad
         })
-    
-    # ---------------------------------------
-    # METODOS PRIVADOS (CORE)
-    # ---------------------------------------
-    
+
+    # ═══════════════════════════════════════════════════════
+    # MÉTODOS PRIVADOS (CORE LOGIC)
+    # ═══════════════════════════════════════════════════════
+
     def _validate_endpoint(self, endpoint: str) -> None:
         """
-        Validate que el Endpoint sea seguro y correcto
+        Valida que el endpoint sea seguro y correcto.
         
-        Previene Errores Comunes:
-            - Endpoint: None o Vacio
-            - Endpoint: sin '/' inical
-            - Endpoint: no-string
+        Previene errores comunes:
+        - Endpoint None o vacío
+        - Endpoint sin "/" inicial
+        - Endpoint no-string
         
         Args:
-            endpoint: Ruta del Endpoint (debe Empezar con '/')
+            endpoint: Ruta del endpoint (debe empezar con /)
             
         Raises:
-            ValueError: Si el endpoint es invalido    
+            ValueError: Si el endpoint es inválido
+            
+        Ejemplos:
+            ✅ "/pacientes"
+            ✅ "/inventario/productos"
+            ❌ "pacientes" (sin /)
+            ❌ None
+            ❌ ""
         """
-        
         if not endpoint or not isinstance(endpoint, str):
             raise ValueError(
-                f"Endpoint debe ser un string no-vacio."
-                f"Recibo: {repr(endpoint)}"
-                # ├─ Segunda parte del mensaje
-                # ├─ DIAGNÓSTICO: Qué recibió realmente
-                # ├─ repr(endpoint): representación Python
-                # │
-                # ├─ ¿Por qué repr() en lugar de str()?
-                # │  ├─ repr("") = "''"  ← Muestra comillas
-                # │  │                    (string vacío visible)
-                # │  ├─ str("") = ""    ← Sin comillas
-                # │  │                   (podría parecer nada)
-                # │  │
-                # │  ├─ repr(None) = "None"
-                # │  │ str(None) = "None"
-                # │  │
-                # │  ├─ repr(123) = "123"
-                # │  │ str(123) = "123"
-                # │  │
-                # │  └─ Con repr() es INEQUÍVOCO lo que recibiste
-                # │
-                # └─ EJEMPLO DE MENSAJE:
-                #    "Endpoint debe ser un string no-vacio.Recibo: ''"
-                #    "Endpoint debe ser un string no-vacio.Recibo: None"
-                #    "Endpoint debe ser un string no-vacio.Recibo: 123"
+                f"Endpoint debe ser un string no-vacío. "
+                f"Recibido: {repr(endpoint)}"
             )
-
+        
         if not endpoint.startswith("/"):
             raise ValueError(
                 f"Endpoint debe iniciar con '/'. "
-                f"Recibo: {endpoint}"
+                f"Recibido: {endpoint}"
             )
-        
-        
+
     def _handle_response(self, response: requests.Response) -> Dict[str, Any]:
         """
         Procesa respuesta HTTP y normaliza salida.
@@ -155,8 +124,7 @@ class APIClient:
         2. Respuesta JSON válida (list)
         3. Respuesta no-JSON (HTML, texto plano)
         """
-        
-        # Intentar 
+        # Intentar parsear JSON
         try:
             data = response.json()
         except ValueError:
@@ -165,7 +133,6 @@ class APIClient:
                 f"Respuesta no-JSON. Status: {response.status_code}. "
                 f"Body: {response.text[:200]}"
             )
-            
             return {
                 "success": False,
                 "status_code": response.status_code,
@@ -174,446 +141,316 @@ class APIClient:
                     "type": "invalid_response"
                 }
             }
-        
-        # Agregar status_code a la respuesta del Backend
-        if isinstance(data, dict):
-            data["status_code"] = response.status_code
+
+        # Normalización: Envolver siempre en estructura estándar
+        # Si el backend ya devuelve un envelope con "success" y "data", lo usamos.
+        if isinstance(data, dict) and "success" in data and "data" in data:
+            if "status_code" not in data:
+                data["status_code"] = response.status_code
             return data
-        
-        # Si el Backend devuelve una lista directamente (raro)
+
+        # Si es una respuesta cruda (dict o list), la envolvemos
         return {
             "success": response.ok,
             "status_code": response.status_code,
             "data": data
         }
-    
-    def get(self, endpoint: str, params: Optional[Dict] = None) -> Dict[str, Any]:
+
+    def _handle_error(
+        self,
+        endpoint: str,
+        method: str,
+        exception: Exception
+    ) -> Dict[str, Any]:
         """
-        GET request generico.
+        Centraliza el manejo de excepciones (DRY).
         
-        Args: 
-            endpoint: Ruta Relativa 
-            params : Query paramteters
-            
-        Returns:
-            Dict con la Repsuesta procesada
-        
-        Example:
-            >>> client = APIClient()
-            >>> result = client.get("/pacientes", params={"limit": 10})
-            >>> if result["success"]:
-            >>>     pacientes = result["data"]["data"]
-            
-        """    
-        
-        try:
-            url = f"{self.base_url}{endpoint}"
-            response = self.session.get(
-                url,
-                params = params,
-                timeout = self.timeout
-            )
-            
-            return self._handle_response(response)
-            
-        except requests.exceptions.Timeout:
-            return {
-                "success": False,
-                "error": "El servidor tardo demasiado en Responder",
-                "error_Type": "Timeout"
-            }
-        except requests.exceptions.ConnectionError:
-            return {
-                "success": False,
-                "error": "No se puede conectar al Servidor",
-                "error_type": "connection"
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Error Inesperado {str(e)}",
-                "error_type": "unknown"
-            }
-    
-    def post(self, endpoint: str, data: Dict) -> Dict[str, Any]:
-        """
-        POST request generico
+        Diferencia tipos de error para dar feedback específico:
+        - Timeout: Servidor lento
+        - ConnectionError: Servidor apagado/red caída
+        - HTTPError: Error 4xx/5xx
+        - Otros: Errores inesperados
         
         Args:
-            - endpoint: Ruta Relativa
-            - data: Datos a Enviar (Se convierte a JSON Automaticamente)
+            endpoint: Ruta del endpoint
+            method: Método HTTP (GET, POST, etc.)
+            exception: Excepción capturada
             
         Returns:
-            Dict con la Repsuesta procesada
+            Diccionario con error normalizado
+            
+        Estructura de salida:
+        {
+            "success": False,
+            "error": {
+                "message": str,  # Mensaje user-friendly
+                "type": str      # Tipo para lógica en frontend
+            }
+        }
         """
-        try:
-            url = f"{self.base_url}{endpoint}"
-            response = self.session.post(
-                url,
-                json = data,
-                timeout = self.timeout
-            )
-            return self._handle_response(response)
-        
-        except requests.exceptions.Timeout:
+        if isinstance(exception, requests.exceptions.Timeout):
+            logger.warning(f"TIMEOUT en {method} {endpoint}")
             return {
                 "success": False,
-                "error": "El servidor tardo demasiado en responder",
-                "error_type": "timeout"
-            }
-        except requests.exceptions.ConnectionError:
-            return {
-                "success": False,
-                "error": "No se puede conectar al Servidor",
-                "error_type": "connection"
-            }
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Error inesperafo : {str(e)}",
-                "error_type": "unknown"
-            }
-    def put(self, endpoint: str, data: Dict) -> Dict[str, Any]:
-        
-        """
-        PUT request generico (Actualizar recurso completo).
-        
-        PUT actualiza TODOS los campos del recurso.
-        Diferencia con PATCH: PUT reemplaza todo, PATCH solo lo que envías.
-        
-        Args:
-            endpoint: Ruta relativa (ej: "/pacientes/5")
-            data: Diccionario con datos a actualizar
-        
-        Returns:
-            Dict con {"success": bool, "status_code": int, "data": dict, "error": dict}
-        
-        Example:
-            >>> client = APIClient()
-            >>> result = client.put("/pacientes/5", {"nombre": "Juan", "edad": 35})
-            >>> if result["success"]:
-            >>>     print("Paciente actualizado")
-        """
-        try:
-            # LÍNEA 1: Construir URL completa
-            url = f"{self.base_url}{endpoint}"
-            # Ejemplo: "http://localhost:5000/api/v1" + "/pacientes/5"
-            # Resultado: "http://localhost:5000/api/v1/pacientes/5"
-            
-            # LÍNEA 2: Hacer petición PUT
-            response = self.session.put(
-                url,
-                json=data,           # Convierte dict a JSON automaticamente
-                timeout=self.timeout  # Espera máximo 10 segundos (default)
-            )
-            # ¿Por qué json= ? Porque Flask espera Content-Type: application/json
-            # Requests automáticamente setea el header correcto
-            
-            # LÍNEA 3: Procesar respuesta (success, status_code, data, error)
-            return self._handle_response(response)
-            
-        except requests.exceptions.Timeout:
-            # Timeout: El servidor no respondió en 10 segundos
-            return {
-                "success": False,
-                "error": "El servidor tardó demasiado en responder",
-                "error_type": "timeout"  # ← IMPORTANTE: especificar tipo
+                "error": {
+                    "message": "El servidor tardó demasiado en responder",
+                    "type": "timeout"
+                }
             }
         
-        except requests.exceptions.ConnectionError:
-            # Connection Error: No hay conexión con el servidor
+        elif isinstance(exception, requests.exceptions.ConnectionError):
+            logger.error(f"CONNECTION ERROR en {method} {endpoint}")
             return {
                 "success": False,
-                "error": "No se puede conectar al servidor",
-                "error_type": "connection"
+                "error": {
+                    "message": "No se puede conectar al servidor",
+                    "type": "connection"
+                }
             }
         
-        except Exception as e:
-            # Cualquier otro error inesperado
+        elif isinstance(exception, requests.exceptions.HTTPError):
+            logger.error(f"HTTP ERROR en {method} {endpoint}: {exception}")
             return {
                 "success": False,
-                "error": f"Error inesperado: {str(e)}",
-                "error_type": "unknown"
+                "error": {
+                    "message": f"Error HTTP: {exception}",
+                    "type": "http_error"
+                }
+            }
+        
+        else:
+            # Error inesperado (bug en código, etc.)
+            logger.exception(f"ERROR CRÍTICO en {method} {endpoint}")
+            return {
+                "success": False,
+                "error": {
+                    "message": str(exception),
+                    "type": "unknown"
+                }
             }
 
+    # ═══════════════════════════════════════════════════════
+    # MÉTODOS PÚBLICOS (HTTP VERBS)
+    # ═══════════════════════════════════════════════════════
+
+    def get(
+        self,
+        endpoint: str,
+        params: Optional[Dict] = None
+    ) -> Dict[str, Any]:
+        """
+        Realiza petición GET.
+        
+        Uso típico: Obtener recursos (lista o detalle)
+        
+        Args:
+            endpoint: Ruta del endpoint (ej: "/pacientes")
+            params: Parámetros query (ej: {"limit": 10, "offset": 0})
+            
+        Returns:
+            {
+                "success": bool,
+                "data": [...] o {...},
+                "error": {...}  # Solo si success=False
+            }
+            
+        Ejemplo:
+            result = client.get("/pacientes", params={"limit": 50})
+            if result["success"]:
+                pacientes = result["data"]
+        """
+        self._validate_endpoint(endpoint)
+        
+        try:
+            url = f"{self.base_url}{endpoint}"
+            logger.debug(f"GET {endpoint} | Params: {params}")
+            
+            response = self.session.get(
+                url,
+                params=params,
+                timeout=self.timeout
+            )
+            
+            logger.debug(f"GET {endpoint} -> {response.status_code}")
+            return self._handle_response(response)
+        
+        except Exception as e:
+            return self._handle_error(endpoint, "GET", e)
+
+    def post(self, endpoint: str, data: Dict) -> Dict[str, Any]:
+        """
+        Realiza petición POST.
+        
+        Uso típico: Crear recursos
+        
+        Args:
+            endpoint: Ruta del endpoint (ej: "/pacientes")
+            data: Datos a enviar en JSON
+            
+        Returns:
+            {
+                "success": bool,
+                "data": {...},  # Recurso creado
+                "error": {...}  # Solo si success=False
+            }
+            
+        Ejemplo:
+            result = client.post("/pacientes", {
+                "dni": "12345678",
+                "nombreCompleto": "Juan Pérez"
+            })
+            if result["success"]:
+                nuevo_paciente = result["data"]
+        
+        Nota:
+            No logueamos 'data' por seguridad (puede contener
+            contraseñas, tokens, etc.)
+        """
+        self._validate_endpoint(endpoint)
+        
+        try:
+            url = f"{self.base_url}{endpoint}"
+            logger.debug(f"POST {endpoint}")  # Sin data por seguridad
+            
+            response = self.session.post(
+                url,
+                json=data,
+                timeout=self.timeout
+            )
+            
+            logger.debug(f"POST {endpoint} -> {response.status_code}")
+            return self._handle_response(response)
+        
+        except Exception as e:
+            return self._handle_error(endpoint, "POST", e)
+
+    def put(self, endpoint: str, data: Dict) -> Dict[str, Any]:
+        """
+        Realiza petición PUT.
+        
+        Uso típico: Actualizar recursos completos
+        
+        Args:
+            endpoint: Ruta del endpoint (ej: "/pacientes/123")
+            data: Datos a actualizar
+            
+        Returns:
+            {
+                "success": bool,
+                "data": {...},  # Recurso actualizado
+                "error": {...}  # Solo si success=False
+            }
+            
+        Ejemplo:
+            result = client.put("/pacientes/123", {
+                "telefono": "987654321"
+            })
+            if result["success"]:
+                paciente_actualizado = result["data"]
+        """
+        self._validate_endpoint(endpoint)
+        
+        try:
+            url = f"{self.base_url}{endpoint}"
+            logger.debug(f"PUT {endpoint}")
+            
+            response = self.session.put(
+                url,
+                json=data,
+                timeout=self.timeout
+            )
+            
+            logger.debug(f"PUT {endpoint} -> {response.status_code}")
+            return self._handle_response(response)
+        
+        except Exception as e:
+            return self._handle_error(endpoint, "PUT", e)
 
     def delete(self, endpoint: str) -> Dict[str, Any]:
         """
-        DELETE request generico (Eliminar recurso).
+        Realiza petición DELETE.
         
-        DELETE elimina completamente un recurso de la base de datos.
-        Generalmente devuelve 204 No Content si tuvo éxito.
+        Uso típico: Eliminar recursos
         
         Args:
-            endpoint: Ruta relativa (ej: "/pacientes/5")
-        
-        Returns:
-            Dict con {"success": bool, "status_code": int, "data": dict, "error": dict}
-        
-        Example:
-            >>> client = APIClient()
-            >>> result = client.delete("/pacientes/5")
-            >>> if result["success"]:
-            >>>     print("Paciente eliminado")
-        """
-        try:
-            # LÍNEA 1: Construir URL completa
-            url = f"{self.base_url}{endpoint}"
-            # Ejemplo: "http://localhost:5000/api/v1" + "/pacientes/5"
-            # Resultado: "http://localhost:5000/api/v1/pacientes/5"
+            endpoint: Ruta del endpoint (ej: "/pacientes/123")
             
-            # LÍNEA 2: Hacer petición DELETE
-            # IMPORTANTE: DELETE NO envía un body (no tiene json=data)
+        Returns:
+            {
+                "success": bool,
+                "message": str,  # Confirmación
+                "error": {...}   # Solo si success=False
+            }
+            
+        Ejemplo:
+            result = client.delete("/pacientes/123")
+            if result["success"]:
+                st.success("Paciente eliminado")
+        """
+        self._validate_endpoint(endpoint)
+        
+        try:
+            url = f"{self.base_url}{endpoint}"
+            logger.debug(f"DELETE {endpoint}")
+            
             response = self.session.delete(
                 url,
-                timeout=self.timeout  # Espera máximo 10 segundos
+                timeout=self.timeout
             )
-            # ¿Por qué no json= ? Porque DELETE no necesita enviar datos
-            # Solo le dices "elimina lo que está en esta URL"
             
-            # LÍNEA 3: Procesar respuesta
+            logger.debug(f"DELETE {endpoint} -> {response.status_code}")
             return self._handle_response(response)
-            
-        except requests.exceptions.Timeout:
-            return {
-                "success": False,
-                "error": "El servidor tardó demasiado en responder",
-                "error_type": "timeout"
-            }
-        
-        except requests.exceptions.ConnectionError:
-            return {
-                "success": False,
-                "error": "No se puede conectar al servidor",
-                "error_type": "connection"
-            }
         
         except Exception as e:
+            return self._handle_error(endpoint, "DELETE", e)
+
+
+# ═══════════════════════════════════════════════════════════
+# FUNCIÓN HELPER PÚBLICA
+# ═══════════════════════════════════════════════════════════
+
+def health_check() -> Dict[str, Any]:
+    """
+    Verifica conectividad con el Backend.
+    
+    Se usa en app.py al inicio para validar que el servidor
+    Flask está corriendo y responde correctamente.
+    
+    Returns:
+        {
+            "success": bool,
+            "message": str  # Mensaje user-friendly
+        }
+        
+    Ejemplo de uso en app.py:
+        health = health_check()
+        if not health["success"]:
+            st.error(health["message"])
+            st.stop()
+    
+    Nota:
+        Usa el método get() de BaseAPIClient para reutilizar
+        toda la lógica de manejo de errores (DRY).
+    """
+    try:
+        client = BaseAPIClient()
+        result = client.get("/health")
+        
+        if result.get("success"):
+            return {
+                "success": True,
+                "message": "Backend operativo"
+            }
+        else:
+            error_msg = result.get("error", {}).get("message", "Error desconocido")
             return {
                 "success": False,
-                "error": f"Error inesperado: {str(e)}",
-                "error_type": "unknown"
+                "message": f"Backend no disponible: {error_msg}"
             }
-
-    # ============================================
-    # METODOS ESPECIFICOS (PACIENTES)
-    # ===========================================
     
-    def get_pacientes(self, limit: int = 100, offset: int = 0) -> Dict[str, Any]:
-        """
-        Obtiene lista de Pacientes.
-        Args:
-            - limit: Numero maximo de pacientes a devolver
-            
-        Returns: 
-            - Dict con Lista de Pacientes o Error    
-        """
-        return self.get("/pacientes", params = {"limit": limit, "offset": offset})
-    
-    def get_paciente(self, paciente_id: int) -> Dict[str, Any]:
-        """
-        Obtiene un Paciente especifico por ID
-        
-        Args:
-            paciente_id: ID del Paciente
-        
-        Returns:
-            Dict con estrucutura: {success, status_code, data, error}
-        """
-        return self.get(f"/pacientes/{paciente_id}")
-    
-    def crear_paciente(self, data: Dict) -> Dict[str, Any]:
-        """
-        Crea un nuevo paciente.
-        
-        Args:
-            data: Diccionario con datos del paciente
-                {
-                    "dni": "12345678",
-                    "nombreCompleto": "Juan Pérez",
-                    "telefono": "987654321",
-                    "idDistrito": 1,
-                    "sexo": "M",
-                    "nacimientoYear": 1990,
-                    "nacimientoMonth": 1,
-                    "nacimientoDay": 15
-                }
-        
-        Returns:
-            Dict con estructura: {success, status_code, data, error}
-        """
-        return self.post("/pacientes", data)
-    
-    def actualizar_paciente(self, id_paciente: int, data: Dict) -> Dict[str,Any]:
-        """
-        Actualiza un paciente existente.
-        
-        Args:
-            paciente_id: ID del paciente a Actualizar
-            data: Diccionario con campos a Actualizar 
-        
-        Returns:
-            Dict con estructura: {success, status_cODE }
-        """
-        return self.put(f"/pacientes/{id_paciente}", data)
-    
-    def eliminar_paciente(self, id_paciente: int) -> Dict[str, Any]:
-        """
-        Eliminar paciente en base al num de su id
-        
-        """
-        return self.delete(f"/pacientes/{id_paciente}")
-    
-    # ==================================================
-    # METODOS  ESPECIFICOS (INVENTARIO)
-    # ==================================================
-    
-    def get_productos(
-        self,
-        limit: int=100,
-        offset: int=0     
-        ) -> Dict[str, Any]:
-        """
-        Obtiene lista de productos.
-    
-        Args:
-            limit: Máximo de registros (default: 100)
-            offset: Desplazamiento para paginación (default: 0)
-        
-        Returns:
-            Dict con estructura: {success, status_code, data, error}
-    
-        """
-        
-        return self.get("/productos", params={"limit":limit, "offset":offset})
-    
-    def get_movimientos_stock(
-        self, 
-        id_producto: Optional[int] = None,
-        limit: int = 100,
-        offset: int = 0        
-    ) -> Dict[str, Any]:
-        """
-        Obtiene movimientos de stock (kárdex).
-        
-        Args:
-            id_producto: Filtrar por producto (optional)
-            limit: Máximo de registros (default: 100)
-            offset: Desplazamiento para paginación (default: 0)
-        
-        Returns:
-            Dict con estructura: {success, status_code, data, error}
-        """
-        
-        params = {"limit": limit, "offset": offset}
-        
-        if id_producto is not None:
-            params["id_producto"] = id_producto
-        
-        return self.get("/inventario/movimientos", params=params)
-        
-    def registrar_entrada_stock(
-        self,
-        id_producto: int,
-        cantidad: int, 
-        referencia: str = None
-    ):
-        """
-        Registra entrada de Stock para un producto.
-        
-        Parametros:
-            id_producto: int - ID del producto (debe existir en DB)
-            cantidad: int - Numero de unidades a registrar (debe ser > 0)
-            referencia: str - Numero de orden de compra o referencia interna (Opcional)
-        """
-        if id_producto <= 0:
-            raise ValueError("id_producto debe ser > 0")
-        if cantidad <= 0:
-            raise ValueError("cantidad debe ser > 0")
-        data = {
-            "id_producto": id_producto,
-            "cantidad": cantidad,
-            "tipo_movimiento": "ENTRADA", # <- GARANTIZADO
-            "referencia": referencia
+    except Exception as e:
+        logger.exception("Error crítico en health_check()")
+        return {
+            "success": False,
+            "message": f"Error al verificar backend: {str(e)}"
         }
-        
-        return self.post("/inventario/movimientos", data)
-    
-    def registrar_salida_stock(
-        self,
-        id_producto: int,
-        cantidad: int,
-        razon: str = "Consumo"
-    ):
-        data = {
-            "id_producto": id_producto,
-            "cantidad": cantidad,
-            "tipo_movimiento": "SALIDA", 
-            "razon": razon
-        }
-        
-        return self.post("inventario/movimientos", data)
-    
-    # ═══════════════════════════════════════════════════════
-    # MÉTODOS FALTANTES (CONSULTAS)
-    # ═══════════════════════════════════════════════════════
-
-    def get_servicios(self) -> Dict[str, Any]:
-        """Obtiene catálogo de servicios (Botox, etc)."""
-        return self.get("/servicios")
-
-    def registrar_consulta(self, data: Dict) -> Dict[str, Any]:
-        """
-        Registra la consulta completa (Acto médico + Consumo).
-        """
-        return self.post("/consultas", data)
-
-    # ==============================================
-    # HEALTH CHECK
-    # ==============================================
-    
-    def health_check(self) -> Dict[str, Any]:
-        """
-        Verifica si el backend esta vivo.
-        
-        Returns:
-            Dict con status del servidor 
-        """
-        try: 
-            # Endpoint de health (Flask)
-            response = self.session.get(
-                f"{self.base_url.replace('/api/v1', '')}/health", timeout=5
-            )
-            
-            return {
-                "success":response.ok, 
-                "status":response.json() if response.ok else None
-            }
-            
-        except:
-            return {
-                "success":False,
-                "status": "offline"
-            }
-            
-# =============================================
-# INSTANCIA GLOBAL
-# =============================================
-    
-api_client = APIClient()
-
-"""
-¿POR QUÉ SINGLETON?
--------------------
-Para reutilizar la misma sesión HTTP (conexiones persistentes).
-
-USO:
-----
-# En cualquier módulo:
-from modules.api_client import api_client
-
-result = api_client.get_pacientes()
-if result["success"]:
-    pacientes = result["data"]["data"]
-"""  
